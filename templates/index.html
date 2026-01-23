@@ -67,70 +67,117 @@
         }
 
         async function takeStrip() {
-            // Photo strip takes longer to process, but the first capture is fast-ish
-            // The backend for strip capture is tricky because it does 3 photos.
-            // For now, let's keep the simple countdown but maybe extend the "Processing" state.
-            startFlow(3, '🎞️ Photo Strip', '/api/strip');
+            startStripFlow();
         }
 
         async function startFlow(seconds, mode, apiEndpoint) {
             if (document.getElementById('photoBtn').disabled) return;
-            
             disableButtons();
             
-            // 1. Start the backend process IMMEDIATELY (it takes ~2.5s to warm up camera)
-            // We don't await this yet so the UI updates concurrently
+            // Start Backend
             const fetchPromise = fetch(apiEndpoint, { method: 'POST' });
             
-            // 2. Start Visual Countdown
-            showCountdown(seconds, mode);
+            // Start Visuals
+            await runCountdown(seconds, mode);
+            
+            // Processing
+            updateStatus('capturing', '🖨️', 'Processing & printing...');
+            
+            try {
+                const response = await fetchPromise;
+                const data = await response.json();
+                handleResponse(response, data);
+            } catch (error) {
+                handleError();
+            }
+        }
+
+        async function startStripFlow() {
+            if (document.getElementById('photoBtn').disabled) return;
+            disableButtons();
+            
+            // Start Backend (It will wait 3s, capture, wait 2s, wait 3s, capture...)
+            const fetchPromise = fetch('/api/strip', { method: 'POST' });
+            
+            // --- Photo 1 ---
+            await runCountdown(3, "Pose 1/3");
+            
+            // --- Gap 1 ---
+            await runGap(2, "Next Pose!");
+            
+            // --- Photo 2 ---
+            await runCountdown(3, "Pose 2/3");
+            
+            // --- Gap 2 ---
+            await runGap(2, "Last One!");
+            
+            // --- Photo 3 ---
+            await runCountdown(3, "Pose 3/3");
+            
+            // Processing
+            const display = document.getElementById('countdown-display');
+            display.textContent = '🖨️';
+            updateStatus('capturing', '🖨️', 'Processing strip...');
 
             try {
                 const response = await fetchPromise;
                 const data = await response.json();
-                
-                if (response.ok) {
-                    // Backend has started successfully
-                    startPolling();
-                } else {
-                    hideCountdown();
-                    updateStatus('error', '❌', data.message);
-                    enableButtons();
-                }
+                handleResponse(response, data);
             } catch (error) {
+                handleError();
+            }
+        }
+
+        function runCountdown(seconds, text) {
+            return new Promise(resolve => {
+                let remaining = seconds;
+                const display = document.getElementById('countdown-display');
+                display.classList.remove('hidden');
+                display.textContent = remaining;
+                updateStatus('capturing', '📷', `${text} - Get ready!`);
+                
+                const interval = setInterval(() => {
+                    remaining--;
+                    if (remaining > 0) {
+                        display.textContent = remaining;
+                        updateStatus('capturing', '⏱️', `${text} in ${remaining}...`);
+                    } else {
+                        clearInterval(interval);
+                        display.textContent = '📸';
+                        triggerFlash();
+                        updateStatus('capturing', '📸', 'SNAP!');
+                        setTimeout(resolve, 200); // Short pause after flash
+                    }
+                }, 1000);
+            });
+        }
+        
+        function runGap(seconds, text) {
+            return new Promise(resolve => {
+                const display = document.getElementById('countdown-display');
+                display.textContent = '✋'; // Stop/Wait icon
+                updateStatus('capturing', '✋', `${text}`);
+                
+                setTimeout(() => {
+                    resolve();
+                }, seconds * 1000);
+            });
+        }
+
+        function handleResponse(response, data) {
+            if (response.ok) {
+                startPolling();
+            } else {
                 hideCountdown();
-                updateStatus('error', '❌', 'Connection error');
+                updateStatus('error', '❌', data.message);
                 enableButtons();
             }
         }
 
-        function showCountdown(seconds, mode) {
-            let remaining = seconds;
-            const display = document.getElementById('countdown-display');
-            display.classList.remove('hidden');
-            display.textContent = remaining;
-            updateStatus('capturing', '📷', `${mode} - Get ready!`);
-            
-            countdownInterval = setInterval(() => {
-                remaining--;
-                
-                if (remaining > 0) {
-                    display.textContent = remaining;
-                    updateStatus('capturing', '⏱️', `Look at the camera! ${remaining}...`);
-                } else if (remaining === 0) {
-                    // FLASH!
-                    display.textContent = '📸';
-                    triggerFlash();
-                    updateStatus('capturing', '📸', 'Capturing... Smile!');
-                } else {
-                    // Wait phase (after 0)
-                    display.textContent = '🖨️'; // Or spinner
-                    updateStatus('capturing', '🖨️', 'Processing & printing...');
-                    
-                    clearInterval(countdownInterval);
-                    countdownInterval = null;
-                }
-            }, 1000);
+        function handleError() {
+            hideCountdown();
+            updateStatus('error', '❌', 'Connection error');
+            enableButtons();
         }
 
         function triggerFlash() {

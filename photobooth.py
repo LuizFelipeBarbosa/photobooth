@@ -162,12 +162,17 @@ class PhotoboothCamera:
         print(f"✅ Photo captured: {filepath}")
         return filepath
 
-    def capture_strip(self, num_photos=3, countdown=3):
+    def capture_strip(self, num_photos=3, countdown=3, gap=2):
         photo_paths = []
         
         for i in range(num_photos):
+            if i > 0:
+                print(f"⏳ Gap: {gap}s...")
+                time.sleep(gap)
+                
             print(f"\n📸 Strip Photo {i+1}/{num_photos}")
-            path = self.capture(countdown if i == 0 else 1) # 1s gap between subsequent photos
+            # Ensure full countdown for every photo so users can prep
+            path = self.capture(countdown)
             if path:
                 photo_paths.append(path)
                 

@@ -128,7 +128,7 @@ def take_strip():
         last_result = {"status": "capturing", "message": "Photo strip mode! 📸📸📸"}
         
         try:
-            paths = camera.capture_strip(num_photos=3, countdown=3)
+            paths = camera.capture_strip(num_photos=3, countdown=3, gap=2)
             
             if paths:
                 strip_path = create_photo_strip(paths)
