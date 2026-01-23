@@ -26,6 +26,9 @@ PRODUCT_ID = 0x811e
 PHOTOS_DIR = os.path.join(os.path.dirname(__file__), "photos")
 os.makedirs(PHOTOS_DIR, exist_ok=True)
 
+# Headless mode (no GUI windows)
+HEADLESS = False
+
 
 def capture_photo(camera_index=0, countdown=3):
     """
@@ -55,46 +58,51 @@ def capture_photo(camera_index=0, countdown=3):
     if countdown > 0:
         print(f"📷 Get ready! Taking photo in {countdown} seconds...")
         
-        # Show preview with countdown
-        start_time = cv2.getTickCount()
-        while True:
-            ret, frame = cap.read()
-            if not ret:
-                break
-            
-            elapsed = (cv2.getTickCount() - start_time) / cv2.getTickFrequency()
-            remaining = countdown - int(elapsed)
-            
-            if remaining <= 0:
-                break
-            
-            # Add countdown overlay
-            display_frame = frame.copy()
-            h, w = display_frame.shape[:2]
-            
-            # Draw countdown number
-            font = cv2.FONT_HERSHEY_SIMPLEX
-            text = str(remaining)
-            text_size = cv2.getTextSize(text, font, 5, 10)[0]
-            text_x = (w - text_size[0]) // 2
-            text_y = (h + text_size[1]) // 2
-            
-            cv2.putText(display_frame, text, (text_x, text_y), font, 5, (255, 255, 255), 10)
-            cv2.putText(display_frame, text, (text_x, text_y), font, 5, (0, 120, 255), 5)
-            
-            cv2.imshow("Photobooth - Get Ready!", display_frame)
-            
-            if cv2.waitKey(1) & 0xFF == ord('q'):
-                cap.release()
-                cv2.destroyAllWindows()
-                return None
+        if HEADLESS:
+            # Headless mode: just wait without GUI
+            import time
+            time.sleep(countdown)
+        else:
+            # Show preview with countdown
+            start_time = cv2.getTickCount()
+            while True:
+                ret, frame = cap.read()
+                if not ret:
+                    break
+                
+                elapsed = (cv2.getTickCount() - start_time) / cv2.getTickFrequency()
+                remaining = countdown - int(elapsed)
+                
+                if remaining <= 0:
+                    break
+                
+                # Add countdown overlay
+                display_frame = frame.copy()
+                h, w = display_frame.shape[:2]
+                
+                # Draw countdown number
+                font = cv2.FONT_HERSHEY_SIMPLEX
+                text = str(remaining)
+                text_size = cv2.getTextSize(text, font, 5, 10)[0]
+                text_x = (w - text_size[0]) // 2
+                text_y = (h + text_size[1]) // 2
+                
+                cv2.putText(display_frame, text, (text_x, text_y), font, 5, (255, 255, 255), 10)
+                cv2.putText(display_frame, text, (text_x, text_y), font, 5, (0, 120, 255), 5)
+                
+                cv2.imshow("Photobooth - Get Ready!", display_frame)
+                
+                if cv2.waitKey(1) & 0xFF == ord('q'):
+                    cap.release()
+                    cv2.destroyAllWindows()
+                    return None
     
     # Capture the actual photo
     print("📸 Smile!")
     ret, frame = cap.read()
     
     # Flash white!
-    if ret:
+    if ret and not HEADLESS:
         try:
             white_frame = frame.copy()
             white_frame[:] = (255, 255, 255)
@@ -104,7 +112,8 @@ def capture_photo(camera_index=0, countdown=3):
             pass
     
     cap.release()
-    cv2.destroyAllWindows()
+    if not HEADLESS:
+        cv2.destroyAllWindows()
     
     if not ret:
         print("❌ Failed to capture photo")
@@ -280,46 +289,52 @@ def capture_photo_strip(camera_index=0, num_photos=3, countdown=3):
         
         if countdown > 0:
             print(f"   Get ready in {countdown}...")
-            start_time = cv2.getTickCount()
             
-            while True:
-                ret, frame = cap.read()
-                if not ret:
-                    break
+            if HEADLESS:
+                # Headless mode: just wait without GUI
+                import time
+                time.sleep(countdown)
+            else:
+                start_time = cv2.getTickCount()
                 
-                elapsed = (cv2.getTickCount() - start_time) / cv2.getTickFrequency()
-                remaining = countdown - int(elapsed)
-                
-                if remaining <= 0:
-                    break
-                
-                # Add countdown overlay
-                display_frame = frame.copy()
-                h, w = display_frame.shape[:2]
-                
-                # Photo number indicator
-                cv2.putText(display_frame, f"Photo {i+1}/{num_photos}", (20, 40), 
-                           cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 3)
-                cv2.putText(display_frame, f"Photo {i+1}/{num_photos}", (20, 40), 
-                           cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 120, 255), 2)
-                
-                # Countdown number
-                text = str(remaining)
-                text_size = cv2.getTextSize(text, cv2.FONT_HERSHEY_SIMPLEX, 5, 10)[0]
-                text_x = (w - text_size[0]) // 2
-                text_y = (h + text_size[1]) // 2
-                
-                cv2.putText(display_frame, text, (text_x, text_y), 
-                           cv2.FONT_HERSHEY_SIMPLEX, 5, (255, 255, 255), 10)
-                cv2.putText(display_frame, text, (text_x, text_y), 
-                           cv2.FONT_HERSHEY_SIMPLEX, 5, (0, 120, 255), 5)
-                
-                cv2.imshow("Photobooth - Photo Strip!", display_frame)
-                
-                if cv2.waitKey(1) & 0xFF == ord('q'):
-                    cap.release()
-                    cv2.destroyAllWindows()
-                    return []
+                while True:
+                    ret, frame = cap.read()
+                    if not ret:
+                        break
+                    
+                    elapsed = (cv2.getTickCount() - start_time) / cv2.getTickFrequency()
+                    remaining = countdown - int(elapsed)
+                    
+                    if remaining <= 0:
+                        break
+                    
+                    # Add countdown overlay
+                    display_frame = frame.copy()
+                    h, w = display_frame.shape[:2]
+                    
+                    # Photo number indicator
+                    cv2.putText(display_frame, f"Photo {i+1}/{num_photos}", (20, 40), 
+                               cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 3)
+                    cv2.putText(display_frame, f"Photo {i+1}/{num_photos}", (20, 40), 
+                               cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 120, 255), 2)
+                    
+                    # Countdown number
+                    text = str(remaining)
+                    text_size = cv2.getTextSize(text, cv2.FONT_HERSHEY_SIMPLEX, 5, 10)[0]
+                    text_x = (w - text_size[0]) // 2
+                    text_y = (h + text_size[1]) // 2
+                    
+                    cv2.putText(display_frame, text, (text_x, text_y), 
+                               cv2.FONT_HERSHEY_SIMPLEX, 5, (255, 255, 255), 10)
+                    cv2.putText(display_frame, text, (text_x, text_y), 
+                               cv2.FONT_HERSHEY_SIMPLEX, 5, (0, 120, 255), 5)
+                    
+                    cv2.imshow("Photobooth - Photo Strip!", display_frame)
+                    
+                    if cv2.waitKey(1) & 0xFF == ord('q'):
+                        cap.release()
+                        cv2.destroyAllWindows()
+                        return []
         
         # Capture
         print("   📸 Smile!")
@@ -327,13 +342,14 @@ def capture_photo_strip(camera_index=0, num_photos=3, countdown=3):
         
         if ret:
             # Flash white!
-            try:
-                white_frame = frame.copy()
-                white_frame[:] = (255, 255, 255)
-                cv2.imshow("Photobooth - Photo Strip!", white_frame)
-                cv2.waitKey(150)  # Flash duration
-            except:
-                pass
+            if not HEADLESS:
+                try:
+                    white_frame = frame.copy()
+                    white_frame[:] = (255, 255, 255)
+                    cv2.imshow("Photobooth - Photo Strip!", white_frame)
+                    cv2.waitKey(150)  # Flash duration
+                except:
+                    pass
             
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             filename = f"strip_{timestamp}_{i+1}.jpg"
@@ -343,7 +359,8 @@ def capture_photo_strip(camera_index=0, num_photos=3, countdown=3):
             print(f"   ✅ Captured!")
     
     cap.release()
-    cv2.destroyAllWindows()
+    if not HEADLESS:
+        cv2.destroyAllWindows()
     
     return photo_paths
 
@@ -441,8 +458,14 @@ if __name__ == "__main__":
                         help="Photo strip mode: take 3 photos")
     parser.add_argument("--photos", "-n", type=int, default=3,
                         help="Number of photos for strip mode (default: 3)")
+    parser.add_argument("--headless", action="store_true",
+                        help="Run without GUI (for web server)")
     
     args = parser.parse_args()
+    
+    # Set headless mode
+    if args.headless:
+        HEADLESS = True
     
     countdown = 0 if args.no_preview else args.countdown
     
@@ -450,4 +473,5 @@ if __name__ == "__main__":
         photobooth_strip(camera_index=args.camera, countdown=countdown, num_photos=args.photos)
     else:
         photobooth(camera_index=args.camera, countdown=countdown)
+
 

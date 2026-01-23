@@ -3,3 +3,5 @@ python-escpos>=3.0
 pyusb>=1.2.0
 opencv-python>=4.8.0
 Pillow>=10.0.0
+Flask>=3.0.0
+flask-cors>=4.0.0

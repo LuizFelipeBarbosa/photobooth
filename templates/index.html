@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>THE OCHO Photobooth</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>THE OCHO</h1>
+            <p class="subtitle">PHOTOBOOTH</p>
+        </header>
+
+        <div id="status" class="status ready">
+            <span class="status-icon">📷</span>
+            <span class="status-text">Ready to capture!</span>
+        </div>
+
+        <div id="countdown-display" class="countdown-display hidden"></div>
+
+        <div class="buttons">
+            <button id="photoBtn" class="btn btn-primary" onclick="takePhoto()">
+                <span class="btn-icon">📸</span>
+                <span class="btn-text">Single Photo</span>
+            </button>
+            
+            <button id="stripBtn" class="btn btn-secondary" onclick="takeStrip()">
+                <span class="btn-icon">🎞️</span>
+                <span class="btn-text">Photo Strip</span>
+                <span class="btn-subtitle">3 Photos</span>
+            </button>
+        </div>
+
+        <div class="info">
+            <p>📍 Look at the computer camera!</p>
+            <p>Photos will print automatically</p>
+        </div>
+    </div>
+
+    <script>
+        let polling = null;
+        let countdownInterval = null;
+
+        async function takePhoto() {
+            try {
+                disableButtons();
+                showCountdown(3, '📸 Single Photo');
+                
+                const response = await fetch('/api/photo', { method: 'POST' });
+                const data = await response.json();
+                
+                if (response.ok) {
+                    startPolling();
+                } else {
+                    hideCountdown();
+                    updateStatus('error', '❌', data.message);
+                    enableButtons();
+                }
+            } catch (error) {
+                hideCountdown();
+                updateStatus('error', '❌', 'Connection error');
+                enableButtons();
+            }
+        }
+
+        async function takeStrip() {
+            try {
+                disableButtons();
+                showCountdown(3, '🎞️ Photo Strip');
+                
+                const response = await fetch('/api/strip', { method: 'POST' });
+                const data = await response.json();
+                
+                if (response.ok) {
+                    startPolling();
+                } else {
+                    hideCountdown();
+                    updateStatus('error', '❌', data.message);
+                    enableButtons();
+                }
+            } catch (error) {
+                hideCountdown();
+                updateStatus('error', '❌', 'Connection error');
+                enableButtons();
+            }
+        }
+
+        function showCountdown(seconds, mode) {
+            let remaining = seconds;
+            const display = document.getElementById('countdown-display');
+            display.classList.remove('hidden');
+            display.textContent = remaining;
+            updateStatus('capturing', '📷', `${mode} - Get ready!`);
+            
+            countdownInterval = setInterval(() => {
+                if (remaining > 0) {
+                    display.textContent = remaining;
+                    updateStatus('capturing', '⏱️', `Look at the camera! ${remaining}...`);
+                    remaining--;
+                } else {
+                    display.textContent = '📸';
+                    updateStatus('capturing', '📸', 'Capturing... Smile!');
+                    setTimeout(() => {
+                        display.textContent = '🖨️';
+                        updateStatus('capturing', '🖨️', 'Processing & printing...');
+                    }, 1500);
+                    clearInterval(countdownInterval);
+                    countdownInterval = null;
+                }
+            }, 1000);
+        }
+
+        function hideCountdown() {
+            const display = document.getElementById('countdown-display');
+            display.classList.add('hidden');
+            if (countdownInterval) {
+                clearInterval(countdownInterval);
+                countdownInterval = null;
+            }
+        }
+
+        function startPolling() {
+            if (polling) clearInterval(polling);
+            
+            polling = setInterval(async () => {
+                try {
+                    const response = await fetch('/api/status');
+                    const data = await response.json();
+                    
+                    if (data.status === 'success') {
+                        hideCountdown();
+                        updateStatus('success', '🎉', data.message);
+                        stopPolling();
+                        setTimeout(() => {
+                            updateStatus('ready', '📷', 'Ready to capture!');
+                            enableButtons();
+                        }, 3000);
+                    } else if (data.status === 'error') {
+                        hideCountdown();
+                        updateStatus('error', '❌', data.message);
+                        stopPolling();
+                        enableButtons();
+                    } else if (data.status === 'capturing') {
+                        // Keep current display
+                    }
+                } catch (error) {
+                    // Keep polling
+                }
+            }, 500);
+        }
+
+        function stopPolling() {
+            if (polling) {
+                clearInterval(polling);
+                polling = null;
+            }
+        }
+
+        function updateStatus(type, icon, message) {
+            const status = document.getElementById('status');
+            status.className = 'status ' + type;
+            status.querySelector('.status-icon').textContent = icon;
+            status.querySelector('.status-text').textContent = message;
+        }
+
+        function disableButtons() {
+            document.getElementById('photoBtn').disabled = true;
+            document.getElementById('stripBtn').disabled = true;
+        }
+
+        function enableButtons() {
+            document.getElementById('photoBtn').disabled = false;
+            document.getElementById('stripBtn').disabled = false;
+        }
+
+        // Check initial status
+        fetch('/api/status').then(r => r.json()).then(data => {
+            if (data.in_progress) {
+                disableButtons();
+                startPolling();
+            }
+        });
+    </script>
+</body>
+</html>
