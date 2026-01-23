@@ -111,6 +111,8 @@ def take_photo():
     return jsonify({"status": "started", "message": "Taking photo..."})
 
 
+import time
+
 @app.route('/api/strip', methods=['POST'])
 def take_strip():
     """Take a photo strip (3 photos)"""
@@ -125,13 +127,50 @@ def take_strip():
     def capture():
         global photo_in_progress, last_result
         photo_in_progress = True
-        last_result = {"status": "capturing", "message": "Photo strip mode! 📸📸📸"}
         
         try:
-            paths = camera.capture_strip(num_photos=3, countdown=3, gap=2)
+            photo_paths = []
+            num_photos = 3
             
-            if paths:
-                strip_path = create_photo_strip(paths)
+            for i in range(num_photos):
+                # 1. Countdown Phase
+                target_time = time.time() + 3  # 3 seconds from now
+                last_result = {
+                    "status": "countdown", 
+                    "target_timestamp": target_time,
+                    "photo_index": i + 1,
+                    "total_photos": num_photos,
+                    "message": f"Pose {i+1}/{num_photos}"
+                }
+                
+                # Sleep until target time (approx)
+                time.sleep(3)
+                
+                # 2. Capture Phase
+                last_result = {
+                    "status": "capturing", 
+                    "message": "SNAP!"
+                }
+                
+                # Capture immediately (countdown=0 because we handled it)
+                path = camera.capture(countdown=0)
+                if path:
+                    photo_paths.append(path)
+                
+                # 3. Gap Phase (if not last photo)
+                if i < num_photos - 1:
+                    target_time = time.time() + 2  # 2 seconds gap
+                    last_result = {
+                        "status": "waiting",
+                        "target_timestamp": target_time,
+                        "message": "Next pose..."
+                    }
+                    time.sleep(2)
+
+            # Process strip
+            if photo_paths:
+                last_result = {"status": "processing", "message": "Stitching strip..."}
+                strip_path = create_photo_strip(photo_paths)
                 
                 if strip_path:
                     filename = os.path.basename(strip_path)
