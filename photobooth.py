@@ -48,6 +48,8 @@ except ImportError:
     print("⚠️ OpenCV not available")
 
 
+import threading
+
 class PhotoboothCamera:
     def __init__(self, camera_type='auto', width=1920, height=1080, headless=False):
         self.width = width
@@ -57,6 +59,12 @@ class PhotoboothCamera:
         
         self.picam = None
         self.cap = None
+        
+        # Threading support
+        self.stopped = False
+        self.lock = threading.Lock()
+        self._frame = None
+        self.thread = None
         
         self._initialize_camera()
 
@@ -111,13 +119,40 @@ class PhotoboothCamera:
             self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, self.width)
             self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, self.height)
             
-            # Warmup
-            print("📷 Stabilizing camera...")
+            # Start background thread for OpenCV
+            self.stopped = False
+            self.thread = threading.Thread(target=self._update_opencv, args=())
+            self.thread.daemon = True
+            self.thread.start()
+            
+            # Wait for first frame
+            print("📷 Waiting for first frame...")
             time.sleep(1.0)
             
         print("📷 Camera ready and persistent!")
 
+    def _update_opencv(self):
+        """Background thread to continuously grab frames from OpenCV."""
+        print("📷 Camera thread started")
+        while not self.stopped:
+            if self.cap and self.cap.isOpened():
+                ret, frame = self.cap.read()
+                if ret:
+                    with self.lock:
+                        self._frame = frame
+                else:
+                    # If we lost the camera, maybe try to reconnect?
+                    # For now just sleep a bit to avoid CPU spin
+                    time.sleep(0.1)
+            else:
+                time.sleep(0.1)
+        print("📷 Camera thread stopped")
+
     def close(self):
+        self.stopped = True
+        if self.thread:
+            self.thread.join()
+            
         if self.picam:
             self.picam.stop()
             self.picam.close()
@@ -138,14 +173,20 @@ class PhotoboothCamera:
         filepath = os.path.join(PHOTOS_DIR, filename)
 
         if self.camera_type == 'picamera':
+            # PiCamera is naturally robust, usage here is fine
             array = self.picam.capture_array("main")
             img = Image.fromarray(array)
             img.save(filepath, "JPEG", quality=95)
             
         elif self.camera_type == 'opencv':
-            ret, frame = self.cap.read()
-            if not ret:
-                print("❌ Failed to capture photo")
+            # Grab latest frame from thread
+            frame = None
+            with self.lock:
+                if self._frame is not None:
+                    frame = self._frame.copy()
+            
+            if frame is None:
+                print("❌ Failed to capture photo (no frame in buffer)")
                 return None
             
             # Flash effect (optional, only if not headless)
