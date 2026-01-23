@@ -146,9 +146,9 @@ def capture_photo_picamera(countdown=3):
     return filepath
 
 
-def capture_photo_opencv(camera_index=0, countdown=3):
+def capture_photo_opencv(camera_index=0, countdown=3, width=1280, height=720):
     """Capture a photo using OpenCV (USB webcam)."""
-    print("📷 Initializing camera...")
+    print(f"📷 Initializing camera ({width}x{height})...")
     
     cap = cv2.VideoCapture(camera_index)
     
@@ -157,8 +157,8 @@ def capture_photo_opencv(camera_index=0, countdown=3):
         return None
     
     # Set higher resolution if supported
-    cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
-    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
+    cap.set(cv2.CAP_PROP_FRAME_WIDTH, width)
+    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, height)
     
     print("📷 Camera ready!")
     
@@ -236,14 +236,14 @@ def capture_photo_opencv(camera_index=0, countdown=3):
     return filepath
 
 
-def capture_photo(camera_index=0, countdown=3):
+def capture_photo(camera_index=0, countdown=3, width=1280, height=720):
     """Capture a photo using the best available camera."""
     camera_type = detect_camera()
     
     if camera_type == 'picamera':
         return capture_photo_picamera(countdown)
     else:
-        return capture_photo_opencv(camera_index, countdown)
+        return capture_photo_opencv(camera_index, countdown, width, height)
 
 
 def capture_photo_strip_picamera(num_photos=3, countdown=3):
@@ -315,9 +315,9 @@ def capture_photo_strip_picamera(num_photos=3, countdown=3):
     return photo_paths
 
 
-def capture_photo_strip_opencv(camera_index=0, num_photos=3, countdown=3):
+def capture_photo_strip_opencv(camera_index=0, num_photos=3, countdown=3, width=1280, height=720):
     """Capture multiple photos for a photo strip using OpenCV."""
-    print(f"📷 Photo strip mode: {num_photos} photos")
+    print(f"📷 Photo strip mode: {num_photos} photos ({width}x{height})")
     print("📷 Initializing camera...")
     
     cap = cv2.VideoCapture(camera_index)
@@ -326,8 +326,8 @@ def capture_photo_strip_opencv(camera_index=0, num_photos=3, countdown=3):
         print("❌ Could not open camera")
         return []
     
-    cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
-    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
+    cap.set(cv2.CAP_PROP_FRAME_WIDTH, width)
+    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, height)
     
     photo_paths = []
     
@@ -411,14 +411,14 @@ def capture_photo_strip_opencv(camera_index=0, num_photos=3, countdown=3):
     return photo_paths
 
 
-def capture_photo_strip(camera_index=0, num_photos=3, countdown=3):
+def capture_photo_strip(camera_index=0, num_photos=3, countdown=3, width=1280, height=720):
     """Capture multiple photos using the best available camera."""
     camera_type = detect_camera()
     
     if camera_type == 'picamera':
         return capture_photo_strip_picamera(num_photos, countdown)
     else:
-        return capture_photo_strip_opencv(camera_index, num_photos, countdown)
+        return capture_photo_strip_opencv(camera_index, num_photos, countdown, width, height)
 
 
 def process_for_thermal(image_path):
@@ -536,14 +536,14 @@ def create_photo_strip(photo_paths, spacing=20):
     return strip_path
 
 
-def photobooth(camera_index=0, countdown=3):
+def photobooth(camera_index=0, countdown=3, width=1280, height=720):
     """Main photobooth function - capture and print a single photo."""
     print("\n" + "=" * 50)
     print("   📷 PHOTOBOOTH 📷")
     print("=" * 50 + "\n")
     
     # Step 1: Capture photo
-    photo_path = capture_photo(camera_index, countdown)
+    photo_path = capture_photo(camera_index, countdown, width, height)
     if not photo_path:
         print("❌ Photo capture failed")
         return False
@@ -562,7 +562,7 @@ def photobooth(camera_index=0, countdown=3):
     return success
 
 
-def photobooth_strip(camera_index=0, countdown=3, num_photos=3):
+def photobooth_strip(camera_index=0, countdown=3, num_photos=3, width=1280, height=720):
     """Capture multiple photos, create a strip, and print it."""
     print("\n" + "=" * 50)
     print("   📷 PHOTOBOOTH - PHOTO STRIP MODE 📷")
@@ -570,7 +570,7 @@ def photobooth_strip(camera_index=0, countdown=3, num_photos=3):
     print("=" * 50 + "\n")
     
     # Step 1: Capture photos
-    photo_paths = capture_photo_strip(camera_index, num_photos, countdown)
+    photo_paths = capture_photo_strip(camera_index, num_photos, countdown, width, height)
     if not photo_paths:
         print("❌ Photo capture failed")
         return False
@@ -615,6 +615,10 @@ if __name__ == "__main__":
                         help="Force use of Pi Camera")
     parser.add_argument("--opencv", action="store_true",
                         help="Force use of OpenCV (USB webcam)")
+    parser.add_argument("--width", type=int, default=1280,
+                        help="Webcam width (default: 1280)")
+    parser.add_argument("--height", type=int, default=720,
+                        help="Webcam height (default: 720)")
     
     args = parser.parse_args()
     
@@ -631,6 +635,8 @@ if __name__ == "__main__":
     countdown = 0 if args.no_preview else args.countdown
     
     if args.strip:
-        photobooth_strip(camera_index=args.camera, countdown=countdown, num_photos=args.photos)
+        photobooth_strip(camera_index=args.camera, countdown=countdown, num_photos=args.photos,
+                        width=args.width, height=args.height)
     else:
-        photobooth(camera_index=args.camera, countdown=countdown)
+        photobooth(camera_index=args.camera, countdown=countdown,
+                  width=args.width, height=args.height)
