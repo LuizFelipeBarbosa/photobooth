@@ -44,41 +44,53 @@
         </div>
     </div>
 
+    <div id="flash" class="flash"></div>
+
+    <div id="photo-modal" class="modal hidden">
+        <div class="modal-content">
+            <button class="close-btn" onclick="closeModal()">×</button>
+            <h2>Great Shot! 🎉</h2>
+            <div class="photo-container">
+                <img id="result-photo" src="" alt="Captured Photo">
+            </div>
+            <p class="print-msg">Printing your photo...</p>
+        </div>
+    </div>
+
     <script>
         let polling = null;
         let countdownInterval = null;
+        const COUNTDOWN_SECONDS = 3;
 
         async function takePhoto() {
-            try {
-                disableButtons();
-                showCountdown(3, '📸 Single Photo');
-                
-                const response = await fetch('/api/photo', { method: 'POST' });
-                const data = await response.json();
-                
-                if (response.ok) {
-                    startPolling();
-                } else {
-                    hideCountdown();
-                    updateStatus('error', '❌', data.message);
-                    enableButtons();
-                }
-            } catch (error) {
-                hideCountdown();
-                updateStatus('error', '❌', 'Connection error');
-                enableButtons();
-            }
+            startFlow(3, '📸 Single Photo', '/api/photo');
         }
 
         async function takeStrip() {
+            // Photo strip takes longer to process, but the first capture is fast-ish
+            // The backend for strip capture is tricky because it does 3 photos.
+            // For now, let's keep the simple countdown but maybe extend the "Processing" state.
+            startFlow(3, '🎞️ Photo Strip', '/api/strip');
+        }
+
+        async function startFlow(seconds, mode, apiEndpoint) {
+            if (document.getElementById('photoBtn').disabled) return;
+            
+            disableButtons();
+            
+            // 1. Start the backend process IMMEDIATELY (it takes ~2.5s to warm up camera)
+            // We don't await this yet so the UI updates concurrently
+            const fetchPromise = fetch(apiEndpoint, { method: 'POST' });
+            
+            // 2. Start Visual Countdown
+            showCountdown(seconds, mode);
+
             try {
-                disableButtons();
-                showCountdown(3, '🎞️ Photo Strip');
-                
-                const response = await fetch('/api/strip', { method: 'POST' });
+                const response = await fetchPromise;
                 const data = await response.json();
                 
                 if (response.ok) {
+                    // Backend has started successfully
                     startPolling();
                 } else {
                     hideCountdown();
@@ -100,21 +112,33 @@
             updateStatus('capturing', '📷', `${mode} - Get ready!`);
             
             countdownInterval = setInterval(() => {
+                remaining--;
+                
                 if (remaining > 0) {
                     display.textContent = remaining;
                     updateStatus('capturing', '⏱️', `Look at the camera! ${remaining}...`);
-                    remaining--;
-                } else {
+                } else if (remaining === 0) {
+                    // FLASH!
                     display.textContent = '📸';
+                    triggerFlash();
                     updateStatus('capturing', '📸', 'Capturing... Smile!');
-                    setTimeout(() => {
-                        display.textContent = '🖨️';
-                        updateStatus('capturing', '🖨️', 'Processing & printing...');
-                    }, 1500);
+                } else {
+                    // Wait phase (after 0)
+                    display.textContent = '🖨️'; // Or spinner
+                    updateStatus('capturing', '🖨️', 'Processing & printing...');
+                    
                     clearInterval(countdownInterval);
                     countdownInterval = null;
                 }
             }, 1000);
+        }
+
+        function triggerFlash() {
+            const flash = document.getElementById('flash');
+            flash.classList.add('active');
+            setTimeout(() => {
+                flash.classList.remove('active');
+            }, 200);
         }
 
         function hideCountdown() {
@@ -136,19 +160,24 @@
                     
                     if (data.status === 'success') {
                         hideCountdown();
-                        updateStatus('success', '🎉', data.message);
                         stopPolling();
-                        setTimeout(() => {
-                            updateStatus('ready', '📷', 'Ready to capture!');
-                            enableButtons();
-                        }, 3000);
+                        
+                        // Show result!
+                        if (data.photo_url) {
+                            showModal(data.photo_url);
+                        } else {
+                            updateStatus('success', '🎉', data.message);
+                            setTimeout(() => {
+                                updateStatus('ready', '📷', 'Ready to capture!');
+                                enableButtons();
+                            }, 3000);
+                        }
+
                     } else if (data.status === 'error') {
                         hideCountdown();
                         updateStatus('error', '❌', data.message);
                         stopPolling();
                         enableButtons();
-                    } else if (data.status === 'capturing') {
-                        // Keep current display
                     }
                 } catch (error) {
                     // Keep polling
@@ -163,6 +192,26 @@
             }
         }
 
+        function showModal(url) {
+            const modal = document.getElementById('photo-modal');
+            const img = document.getElementById('result-photo');
+            img.src = url + '?t=' + new Date().getTime(); // Prevent caching
+            modal.classList.remove('hidden');
+            modal.classList.add('visible');
+            
+            updateStatus('success', '🎉', 'Printed successfully!');
+        }
+
+        function closeModal() {
+            const modal = document.getElementById('photo-modal');
+            modal.classList.remove('visible');
+            setTimeout(() => {
+                modal.classList.add('hidden');
+                updateStatus('ready', '📷', 'Ready to capture!');
+                enableButtons();
+            }, 300);
+        }
+
         function updateStatus(type, icon, message) {
             const status = document.getElementById('status');
             status.className = 'status ' + type;
@@ -173,11 +222,13 @@
         function disableButtons() {
             document.getElementById('photoBtn').disabled = true;
             document.getElementById('stripBtn').disabled = true;
+            document.body.classList.add('busy');
         }
 
         function enableButtons() {
             document.getElementById('photoBtn').disabled = false;
             document.getElementById('stripBtn').disabled = false;
+            document.body.classList.remove('busy');
         }
 
         // Check initial status

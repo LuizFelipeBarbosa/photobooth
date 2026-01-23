@@ -65,7 +65,7 @@ def take_photo():
         try:
             # Run photobooth as subprocess
             result = subprocess.run(
-                [VENV_PYTHON, "photobooth.py", "--headless", "--countdown", "3"],
+                [VENV_PYTHON, "photobooth.py", "--headless", "--countdown", "0"],
                 cwd=SCRIPT_DIR,
                 capture_output=True,
                 text=True,
@@ -73,7 +73,30 @@ def take_photo():
             )
             
             if result.returncode == 0:
-                last_result = {"status": "success", "message": "Photo printed! 🎉"}
+                # parsing the filename from stdout
+                # We expect "✅ Photo saved: /path/to/photo.jpg" or similar
+                import re
+                output = result.stdout
+                # Look for the last jpg path printed
+                matches = re.findall(r"photos/([^ \t\n\r\f\v]+\.jpg)", output)
+                
+                filename = matches[-1] if matches else None
+                
+                # Check if we have a thermal processed version (often printed lastly)
+                # But for display we might want the original color one?
+                # The script says: "Processed for thermal: ... .png"
+                # Let's try to get the original color photo first for display
+                
+                if filename:
+                    # If it picked up the thermal png by mistake (if I changed logic), ensure jpg
+                    # But regex above enforces .jpg
+                    pass
+                
+                last_result = {
+                    "status": "success", 
+                    "message": "Photo printed! 🎉", 
+                    "photo_url": f"/photos/{filename}" if filename else None
+                }
             else:
                 error_msg = result.stderr.strip().split('\n')[-1] if result.stderr else "Capture failed"
                 last_result = {"status": "error", "message": error_msg[:100]}
@@ -106,7 +129,7 @@ def take_strip():
         try:
             # Run photobooth as subprocess
             result = subprocess.run(
-                [VENV_PYTHON, "photobooth.py", "--headless", "--strip", "--countdown", "3"],
+                [VENV_PYTHON, "photobooth.py", "--headless", "--strip", "--countdown", "0"],
                 cwd=SCRIPT_DIR,
                 capture_output=True,
                 text=True,
@@ -114,7 +137,18 @@ def take_strip():
             )
             
             if result.returncode == 0:
-                last_result = {"status": "success", "message": "Photo strip printed! 🎉"}
+                # Find the strip jpg
+                import re
+                output = result.stdout
+                # The script prints: "✅ Photo strip created: .../photos/photostrip_... .jpg"
+                matches = re.findall(r"photos/(photostrip_[^ \t\n\r\f\v]+\.jpg)", output)
+                filename = matches[-1] if matches else None
+                
+                last_result = {
+                    "status": "success", 
+                    "message": "Photo strip printed! 🎉",
+                    "photo_url": f"/photos/{filename}" if filename else None
+                }
             else:
                 error_msg = result.stderr.strip().split('\n')[-1] if result.stderr else "Capture failed"
                 last_result = {"status": "error", "message": error_msg[:100]}

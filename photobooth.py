@@ -165,6 +165,14 @@ def capture_photo_opencv(camera_index=0, countdown=3, width=1920, height=1080):
     actual_height = cap.get(cv2.CAP_PROP_FRAME_HEIGHT)
     print(f"📷 Actual resolution: {int(actual_width)}x{int(actual_height)}")
     
+    print(f"📷 Actual resolution: {int(actual_width)}x{int(actual_height)}")
+    
+    # Warmup / Stabilization time
+    # This matches the Pi Camera's 2.5s AWB adjustment, ensuring the frontend cooldown
+    # syncs correctly regardless of which camera is used.
+    print("📷 Stabilizing camera...")
+    time.sleep(2.0)
+    
     print("📷 Camera ready!")
     
     if countdown > 0:
@@ -338,6 +346,10 @@ def capture_photo_strip_opencv(camera_index=0, num_photos=3, countdown=3, width=
     actual_width = cap.get(cv2.CAP_PROP_FRAME_WIDTH)
     actual_height = cap.get(cv2.CAP_PROP_FRAME_HEIGHT)
     print(f"📷 Actual resolution: {int(actual_width)}x{int(actual_height)}")
+    
+    # Warmup / Stabilization time
+    print("📷 Stabilizing camera...")
+    time.sleep(2.0)
     
     photo_paths = []
     
