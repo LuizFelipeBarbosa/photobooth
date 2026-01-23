@@ -441,9 +441,20 @@ def process_for_thermal(image_path):
     
     # Resize to thermal printer width (576 pixels for 80mm paper)
     thermal_width = 576
-    aspect_ratio = img.height / img.width
-    new_height = int(thermal_width * aspect_ratio)
-    img = img.resize((thermal_width, new_height), Image.Resampling.LANCZOS)
+    
+    # Crop to square first
+    width, height = img.size
+    min_dim = min(width, height)
+    
+    left = (width - min_dim) / 2
+    top = (height - min_dim) / 2
+    right = (width + min_dim) / 2
+    bottom = (height + min_dim) / 2
+    
+    img = img.crop((left, top, right, bottom))
+    
+    # Resize to 576x576
+    img = img.resize((thermal_width, thermal_width), Image.Resampling.LANCZOS)
     
     # Convert to grayscale
     img = img.convert('L')
