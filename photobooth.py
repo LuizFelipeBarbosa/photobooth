@@ -431,30 +431,34 @@ def capture_photo_strip(camera_index=0, num_photos=3, countdown=3, width=1920, h
         return capture_photo_strip_opencv(camera_index, num_photos, countdown, width, height)
 
 
-def process_for_thermal(image_path):
+def process_for_thermal(image_path, is_strip=False):
     """
     Process an image for optimal thermal printer output.
     """
     from PIL import ImageEnhance, ImageFilter
     
     img = Image.open(image_path)
-    
-    # Resize to thermal printer width (576 pixels for 80mm paper)
     thermal_width = 576
     
-    # Crop to square first
-    width, height = img.size
-    min_dim = min(width, height)
-    
-    left = (width - min_dim) / 2
-    top = (height - min_dim) / 2
-    right = (width + min_dim) / 2
-    bottom = (height + min_dim) / 2
-    
-    img = img.crop((left, top, right, bottom))
-    
-    # Resize to 576x576
-    img = img.resize((thermal_width, thermal_width), Image.Resampling.LANCZOS)
+    if not is_strip:
+        # SINGLE PHOTO: Crop to square
+        width, height = img.size
+        min_dim = min(width, height)
+        
+        left = (width - min_dim) / 2
+        top = (height - min_dim) / 2
+        right = (width + min_dim) / 2
+        bottom = (height + min_dim) / 2
+        
+        img = img.crop((left, top, right, bottom))
+        
+        # Resize to 576x576
+        img = img.resize((thermal_width, thermal_width), Image.Resampling.LANCZOS)
+    else:
+        # STRIP: Maintain aspect ratio (don't crop the strip itself)
+        aspect = img.height / img.width
+        new_height = int(thermal_width * aspect)
+        img = img.resize((thermal_width, new_height), Image.Resampling.LANCZOS)
     
     # Convert to grayscale
     img = img.convert('L')
@@ -531,13 +535,22 @@ def create_photo_strip(photo_paths, spacing=20):
     
     images = [Image.open(p) for p in photo_paths]
     
-    # Resize all to same width
+    # Crop each photo to square and resize to 576x576
     target_width = 576
     resized = []
+    
     for img in images:
-        aspect = img.height / img.width
-        new_height = int(target_width * aspect)
-        resized.append(img.resize((target_width, new_height), Image.Resampling.LANCZOS))
+        # Crop to square
+        width, height = img.size
+        min_dim = min(width, height)
+        left = (width - min_dim) / 2
+        top = (height - min_dim) / 2
+        right = (width + min_dim) / 2
+        bottom = (height + min_dim) / 2
+        img = img.crop((left, top, right, bottom))
+        
+        # Resize to 576x576
+        resized.append(img.resize((target_width, target_width), Image.Resampling.LANCZOS))
     
     # Calculate total height
     total_height = sum(img.height for img in resized) + spacing * (len(resized) - 1)
@@ -605,7 +618,7 @@ def photobooth_strip(camera_index=0, countdown=3, num_photos=3, width=1920, heig
         return False
     
     # Step 3: Process for thermal printing
-    thermal_path = process_for_thermal(strip_path)
+    thermal_path = process_for_thermal(strip_path, is_strip=True)
     
     # Step 4: Print!
     success = print_photo(thermal_path)
