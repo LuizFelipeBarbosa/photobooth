@@ -86,24 +86,20 @@ def detect_camera():
         raise RuntimeError("No camera available!")
 
 
-def capture_photo_picamera(countdown=3):
+def capture_photo_picamera(countdown=3, width=1920, height=1080):
     """Capture a photo using Pi Camera with proper AWB and exposure."""
-    print("📷 Initializing Pi Camera...")
+    print(f"📷 Initializing Pi Camera ({width}x{height})...")
     
     picam = Picamera2()
     
-    # Get the camera's max resolution
-    sensor_res = picam.sensor_resolution
-    print(f"📷 Camera sensor resolution: {sensor_res}")
-    
-    # Configure directly for still capture at full resolution
+    # Configure directly for still capture at requested resolution
     # Don't use preview mode - start directly in still mode
     config = picam.create_still_configuration(
-        main={"size": sensor_res, "format": "RGB888"},
+        main={"size": (width, height), "format": "RGB888"},
         buffer_count=2
     )
     
-    print(f"📷 Configuring for {sensor_res[0]}x{sensor_res[1]}...")
+    print(f"📷 Configuring for {width}x{height}...")
     picam.configure(config)
     
     # Verify configuration
@@ -250,30 +246,26 @@ def capture_photo(camera_index=0, countdown=3, width=1920, height=1080):
     camera_type = detect_camera()
     
     if camera_type == 'picamera':
-        return capture_photo_picamera(countdown)
+        return capture_photo_picamera(countdown, width, height)
     else:
         return capture_photo_opencv(camera_index, countdown, width, height)
 
 
-def capture_photo_strip_picamera(num_photos=3, countdown=3):
+def capture_photo_strip_picamera(num_photos=3, countdown=3, width=1920, height=1080):
     """Capture multiple photos for a photo strip using Pi Camera."""
     from PIL import Image as PILImage
     
-    print(f"📷 Initializing Pi Camera for {num_photos} photos...")
+    print(f"📷 Initializing Pi Camera for {num_photos} photos ({width}x{height})...")
     
     picam = Picamera2()
     
-    # Get the camera's max resolution
-    sensor_res = picam.sensor_resolution
-    print(f"📷 Camera sensor resolution: {sensor_res}")
-    
-    # Configure directly for still capture at full resolution
+    # Configure directly for still capture at requested resolution
     config = picam.create_still_configuration(
-        main={"size": sensor_res, "format": "RGB888"},
+        main={"size": (width, height), "format": "RGB888"},
         buffer_count=2
     )
     
-    print(f"📷 Configuring for {sensor_res[0]}x{sensor_res[1]}...")
+    print(f"📷 Configuring for {width}x{height}...")
     picam.configure(config)
     
     # Verify configuration
@@ -434,7 +426,7 @@ def capture_photo_strip(camera_index=0, num_photos=3, countdown=3, width=1920, h
     camera_type = detect_camera()
     
     if camera_type == 'picamera':
-        return capture_photo_strip_picamera(num_photos, countdown)
+        return capture_photo_strip_picamera(num_photos, countdown, width, height)
     else:
         return capture_photo_strip_opencv(camera_index, num_photos, countdown, width, height)
 
@@ -456,12 +448,14 @@ def process_for_thermal(image_path):
     # Convert to grayscale
     img = img.convert('L')
     
-    # Sharpen
-    img = img.filter(ImageFilter.SHARPEN)
+    # Sharpening often increases noise/grain for dithered prints.
+    # Instead, we slightly smooth to make the dithered dots clump better.
+    img = img.filter(ImageFilter.SMOOTH)
     
     # Increase contrast for thermal printing
+    # Reduced from 1.4 to 1.2 to prevent "blowing out" details before dithering
     enhancer = ImageEnhance.Contrast(img)
-    img = enhancer.enhance(1.4)
+    img = enhancer.enhance(1.2)
     
     # Adjust brightness
     brightness = ImageEnhance.Brightness(img)
