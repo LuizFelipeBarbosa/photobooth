@@ -1,11 +1,16 @@
 """
 Photobooth - Capture and Print
-Takes a photo from webcam and prints it on RONGTA thermal printer
+Takes a photo from webcam/Pi Camera and prints it on RONGTA thermal printer
+
+Supports:
+- Raspberry Pi Camera Module (via picamera2)
+- USB webcams (via OpenCV)
+- Automatic detection of available camera
 """
 
 import os
 import sys
-import cv2
+import time
 from datetime import datetime
 from PIL import Image
 
@@ -29,18 +34,100 @@ os.makedirs(PHOTOS_DIR, exist_ok=True)
 # Headless mode (no GUI windows)
 HEADLESS = False
 
+# Camera type: 'auto', 'picamera', or 'opencv'
+CAMERA_TYPE = 'auto'
 
-def capture_photo(camera_index=0, countdown=3):
-    """
-    Capture a photo from the webcam.
+# Try to import picamera2 (Raspberry Pi Camera)
+PICAMERA_AVAILABLE = False
+try:
+    from picamera2 import Picamera2
+    PICAMERA_AVAILABLE = True
+    print("✅ Pi Camera support available")
+except ImportError:
+    pass
+
+# Import OpenCV
+try:
+    import cv2
+    OPENCV_AVAILABLE = True
+except ImportError:
+    OPENCV_AVAILABLE = False
+    print("⚠️ OpenCV not available")
+
+
+def detect_camera():
+    """Detect which camera to use."""
+    global CAMERA_TYPE
     
-    Args:
-        camera_index: Camera device index (0 for default webcam)
-        countdown: Seconds to show preview before capture (0 for instant)
+    if CAMERA_TYPE == 'picamera':
+        if PICAMERA_AVAILABLE:
+            return 'picamera'
+        else:
+            print("⚠️ picamera2 not installed, falling back to OpenCV")
+            return 'opencv'
+    elif CAMERA_TYPE == 'opencv':
+        return 'opencv'
+    else:  # auto
+        # Check if we're on a Raspberry Pi with Pi Camera
+        if PICAMERA_AVAILABLE:
+            try:
+                # Try to detect Pi Camera
+                picam = Picamera2()
+                picam.close()
+                print("📷 Detected: Pi Camera")
+                return 'picamera'
+            except:
+                pass
+        
+        if OPENCV_AVAILABLE:
+            print("📷 Using: OpenCV (USB webcam)")
+            return 'opencv'
+        
+        raise RuntimeError("No camera available!")
+
+
+def capture_photo_picamera(countdown=3):
+    """Capture a photo using Pi Camera."""
+    print("📷 Initializing Pi Camera...")
     
-    Returns:
-        Path to the captured image file, or None if failed
-    """
+    picam = Picamera2()
+    
+    # Configure for still capture
+    config = picam.create_still_configuration(
+        main={"size": (1920, 1080)},
+        lores={"size": (640, 480)},
+        display="lores"
+    )
+    picam.configure(config)
+    picam.start()
+    
+    # Wait for camera to warm up
+    time.sleep(0.5)
+    print("📷 Pi Camera ready!")
+    
+    if countdown > 0:
+        print(f"📷 Get ready! Taking photo in {countdown} seconds...")
+        for i in range(countdown, 0, -1):
+            print(f"   {i}...")
+            time.sleep(1)
+    
+    # Capture
+    print("📸 Smile!")
+    
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    filename = f"photo_{timestamp}.jpg"
+    filepath = os.path.join(PHOTOS_DIR, filename)
+    
+    picam.capture_file(filepath)
+    picam.stop()
+    picam.close()
+    
+    print(f"✅ Photo saved: {filepath}")
+    return filepath
+
+
+def capture_photo_opencv(camera_index=0, countdown=3):
+    """Capture a photo using OpenCV (USB webcam)."""
     print("📷 Initializing camera...")
     
     cap = cv2.VideoCapture(camera_index)
@@ -60,7 +147,6 @@ def capture_photo(camera_index=0, countdown=3):
         
         if HEADLESS:
             # Headless mode: just wait without GUI
-            import time
             time.sleep(countdown)
         else:
             # Show preview with countdown
@@ -130,151 +216,68 @@ def capture_photo(camera_index=0, countdown=3):
     return filepath
 
 
-def process_for_thermal(image_path, width=576):
-    """
-    Process an image for thermal printing.
-    Resizes and converts to high-contrast black and white.
+def capture_photo(camera_index=0, countdown=3):
+    """Capture a photo using the best available camera."""
+    camera_type = detect_camera()
     
-    Args:
-        image_path: Path to the original image
-        width: Width in pixels for thermal printer (576 for 80mm paper, 384 for 58mm)
-    
-    Returns:
-        Path to the processed image
-    """
-    print("🔄 Processing image for thermal printer...")
-    
-    from PIL import ImageEnhance, ImageFilter
-    
-    # Open and resize
-    img = Image.open(image_path)
-    
-    # Calculate new height maintaining aspect ratio
-    aspect = img.height / img.width
-    new_height = int(width * aspect)
-    
-    img = img.resize((width, new_height), Image.Resampling.LANCZOS)
-    
-    # Convert to grayscale
-    img = img.convert('L')
-    
-    # Apply sharpening for clearer details
-    img = img.filter(ImageFilter.SHARPEN)
-    
-    # Enhance contrast for better thermal print results
-    enhancer = ImageEnhance.Contrast(img)
-    img = enhancer.enhance(1.4)
-    
-    # Enhance brightness slightly
-    enhancer = ImageEnhance.Brightness(img)
-    img = enhancer.enhance(1.1)
-    
-    # Convert to 1-bit black and white using Floyd-Steinberg dithering
-    img = img.convert('1')
-    
-    # Save processed image
-    processed_path = image_path.replace('.jpg', '_thermal.png')
-    img.save(processed_path)
-    
-    print(f"✅ Processed image saved: {processed_path}")
-    return processed_path
+    if camera_type == 'picamera':
+        return capture_photo_picamera(countdown)
+    else:
+        return capture_photo_opencv(camera_index, countdown)
 
 
-def print_photo(image_path, title="THE OCHO PHOTOBOOTH"):
-    """
-    Print a photo to the thermal printer with a header.
+def capture_photo_strip_picamera(num_photos=3, countdown=3):
+    """Capture multiple photos for a photo strip using Pi Camera."""
+    print(f"� Initializing Pi Camera for {num_photos} photos...")
     
-    Args:
-        image_path: Path to the image file
-        title: Title to print above the photo
-    """
-    try:
-        print("🖨️  Connecting to printer...")
-        printer = Usb(VENDOR_ID, PRODUCT_ID)
+    picam = Picamera2()
+    config = picam.create_still_configuration(
+        main={"size": (1920, 1080)},
+        lores={"size": (640, 480)},
+        display="lores"
+    )
+    picam.configure(config)
+    picam.start()
+    time.sleep(0.5)
+    
+    photo_paths = []
+    
+    for i in range(num_photos):
+        print(f"\n� Photo {i + 1} of {num_photos}")
         
-        # Print header
-        printer.set(align='center', bold=True, double_height=True, double_width=True)
-        printer.text(f"\n{title}\n")
+        if countdown > 0:
+            print(f"   Get ready in {countdown}...")
+            for j in range(countdown, 0, -1):
+                print(f"   {j}...")
+                time.sleep(1)
         
-        printer.set(align='center', font='b', bold=False, double_height=False, double_width=False)
-        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        printer.text(f"{timestamp}\n")
-        printer.set(font='a')  # Reset to normal font
-        printer.text("=" * 24 + "\n\n")
+        print("   📸 Smile!")
         
-        # Print the image
-        print("🖨️  Printing photo...")
-        printer.image(image_path)
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        filename = f"strip_{timestamp}_{i+1}.jpg"
+        filepath = os.path.join(PHOTOS_DIR, filename)
         
-        # Print footer
-        printer.text("\n")
-        printer.text("-" * 24 + "\n")
-        printer.set(align='center')
-        printer.text("Thanks for visiting!\n")
-        printer.text("\n\n\n")
+        picam.capture_file(filepath)
+        photo_paths.append(filepath)
+        print(f"   ✅ Captured!")
         
-        # Cut paper if supported
-        try:
-            printer.cut()
-        except:
-            pass
-        
-        printer.close()
-        print("✅ Photo printed successfully!")
-        return True
-        
-    except Exception as e:
-        print(f"❌ Error printing: {e}")
-        return False
+        # Short pause between photos
+        if i < num_photos - 1:
+            time.sleep(0.5)
+    
+    picam.stop()
+    picam.close()
+    
+    return photo_paths
 
 
-def photobooth(camera_index=0, countdown=3):
-    """
-    Main photobooth function - captures and prints a photo.
-    
-    Args:
-        camera_index: Camera device index
-        countdown: Seconds for countdown (0 for instant capture)
-    """
-    print("\n" + "=" * 50)
-    print("   📷 PHOTOBOOTH 📷")
-    print("=" * 50 + "\n")
-    
-    # Step 1: Capture photo
-    photo_path = capture_photo(camera_index, countdown)
-    if not photo_path:
-        print("❌ Photo capture failed")
-        return False
-    
-    # Step 2: Process for thermal printing
-    thermal_path = process_for_thermal(photo_path)
-    
-    # Step 3: Print!
-    success = print_photo(thermal_path)
-    
-    if success:
-        print("\n" + "=" * 50)
-        print("   🎉 Photo printed! 🎉")
-        print("=" * 50 + "\n")
-    
-    return success
-
-
-def capture_photo_strip(camera_index=0, num_photos=3, countdown=3):
-    """
-    Capture multiple photos for a photo strip.
-    
-    Args:
-        camera_index: Camera device index
-        num_photos: Number of photos to take
-        countdown: Seconds between each photo
-    
-    Returns:
-        List of paths to captured images
-    """
-    print(f"📷 Photo strip mode: Taking {num_photos} photos!")
+def capture_photo_strip_opencv(camera_index=0, num_photos=3, countdown=3):
+    """Capture multiple photos for a photo strip using OpenCV."""
+    print(f"📷 Photo strip mode: {num_photos} photos")
+    print("📷 Initializing camera...")
     
     cap = cv2.VideoCapture(camera_index)
+    
     if not cap.isOpened():
         print("❌ Could not open camera")
         return []
@@ -292,7 +295,6 @@ def capture_photo_strip(camera_index=0, num_photos=3, countdown=3):
             
             if HEADLESS:
                 # Headless mode: just wait without GUI
-                import time
                 time.sleep(countdown)
             else:
                 start_time = cv2.getTickCount()
@@ -365,18 +367,100 @@ def capture_photo_strip(camera_index=0, num_photos=3, countdown=3):
     return photo_paths
 
 
+def capture_photo_strip(camera_index=0, num_photos=3, countdown=3):
+    """Capture multiple photos using the best available camera."""
+    camera_type = detect_camera()
+    
+    if camera_type == 'picamera':
+        return capture_photo_strip_picamera(num_photos, countdown)
+    else:
+        return capture_photo_strip_opencv(camera_index, num_photos, countdown)
+
+
+def process_for_thermal(image_path):
+    """
+    Process an image for optimal thermal printer output.
+    """
+    from PIL import ImageEnhance, ImageFilter
+    
+    img = Image.open(image_path)
+    
+    # Resize to thermal printer width (576 pixels for 80mm paper)
+    thermal_width = 576
+    aspect_ratio = img.height / img.width
+    new_height = int(thermal_width * aspect_ratio)
+    img = img.resize((thermal_width, new_height), Image.Resampling.LANCZOS)
+    
+    # Convert to grayscale
+    img = img.convert('L')
+    
+    # Sharpen
+    img = img.filter(ImageFilter.SHARPEN)
+    
+    # Increase contrast for thermal printing
+    enhancer = ImageEnhance.Contrast(img)
+    img = enhancer.enhance(1.4)
+    
+    # Adjust brightness
+    brightness = ImageEnhance.Brightness(img)
+    img = brightness.enhance(1.1)
+    
+    # Convert to 1-bit with dithering
+    img = img.convert('1', dither=Image.Dither.FLOYDSTEINBERG)
+    
+    # Save processed image
+    processed_path = image_path.replace('.jpg', '_thermal.png')
+    img.save(processed_path)
+    
+    print(f"🖨️ Processed for thermal: {processed_path}")
+    return processed_path
+
+
+def print_photo(image_path):
+    """Print a photo to the thermal printer."""
+    print("🖨️ Connecting to printer...")
+    
+    try:
+        printer = Usb(VENDOR_ID, PRODUCT_ID, 0)
+        
+        # Print header
+        printer.set(align='center', bold=True, double_height=True, double_width=True)
+        printer.text("THE OCHO\n")
+        printer.set(align='center', bold=False, double_height=False, double_width=False)
+        printer.text("PHOTOBOOTH\n")
+        
+        # Print timestamp (smaller)
+        printer.set(align='center', font='b')
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M")
+        printer.text(f"{timestamp}\n")
+        printer.set(font='a')  # Reset font
+        printer.text("\n")
+        
+        # Print the image
+        print("🖨️ Printing image...")
+        printer.image(image_path, impl="bitImageColumn")
+        
+        # Print footer
+        printer.text("\n")
+        printer.set(align='center')
+        printer.text("Thanks for visiting!\n")
+        printer.text("\n\n\n")  # Feed paper
+        
+        printer.cut()
+        printer.close()
+        
+        print("✅ Print complete!")
+        return True
+        
+    except Exception as e:
+        print(f"❌ Print error: {e}")
+        return False
+
+
 def create_photo_strip(photo_paths, spacing=20):
-    """
-    Combine multiple photos into a vertical strip.
-    
-    Args:
-        photo_paths: List of paths to photos
-        spacing: Pixels between photos
-    
-    Returns:
-        Path to the combined strip image
-    """
-    print("🔄 Creating photo strip...")
+    """Combine multiple photos into a vertical strip."""
+    if not photo_paths:
+        return None
     
     images = [Image.open(p) for p in photo_paths]
     
@@ -402,39 +486,62 @@ def create_photo_strip(photo_paths, spacing=20):
     # Save strip
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     strip_path = os.path.join(PHOTOS_DIR, f"photostrip_{timestamp}.jpg")
-    strip.save(strip_path)
+    strip.save(strip_path, quality=95)
     
-    print(f"✅ Strip saved: {strip_path}")
+    print(f"✅ Photo strip created: {strip_path}")
     return strip_path
 
 
-def photobooth_strip(camera_index=0, countdown=3, num_photos=3):
-    """
-    Photo strip mode - captures multiple photos and prints them as a strip.
-    
-    Args:
-        camera_index: Camera device index
-        countdown: Seconds between photos
-        num_photos: Number of photos to take
-    """
+def photobooth(camera_index=0, countdown=3):
+    """Main photobooth function - capture and print a single photo."""
     print("\n" + "=" * 50)
-    print("   📷 PHOTO STRIP MODE 📷")
+    print("   📷 PHOTOBOOTH 📷")
     print("=" * 50 + "\n")
     
-    # Step 1: Capture multiple photos
+    # Step 1: Capture photo
+    photo_path = capture_photo(camera_index, countdown)
+    if not photo_path:
+        print("❌ Photo capture failed")
+        return False
+    
+    # Step 2: Process for thermal printing
+    thermal_path = process_for_thermal(photo_path)
+    
+    # Step 3: Print!
+    success = print_photo(thermal_path)
+    
+    if success:
+        print("\n" + "=" * 50)
+        print("   🎉 Photo printed! 🎉")
+        print("=" * 50 + "\n")
+    
+    return success
+
+
+def photobooth_strip(camera_index=0, countdown=3, num_photos=3):
+    """Capture multiple photos, create a strip, and print it."""
+    print("\n" + "=" * 50)
+    print("   📷 PHOTOBOOTH - PHOTO STRIP MODE 📷")
+    print(f"   Taking {num_photos} photos!")
+    print("=" * 50 + "\n")
+    
+    # Step 1: Capture photos
     photo_paths = capture_photo_strip(camera_index, num_photos, countdown)
     if not photo_paths:
         print("❌ Photo capture failed")
         return False
     
-    # Step 2: Create strip
+    # Step 2: Create the strip
     strip_path = create_photo_strip(photo_paths)
+    if not strip_path:
+        print("❌ Failed to create strip")
+        return False
     
-    # Step 3: Process for thermal
+    # Step 3: Process for thermal printing
     thermal_path = process_for_thermal(strip_path)
     
     # Step 4: Print!
-    success = print_photo(thermal_path, title="THE OCHO PHOTO STRIP")
+    success = print_photo(thermal_path)
     
     if success:
         print("\n" + "=" * 50)
@@ -449,7 +556,7 @@ if __name__ == "__main__":
     
     parser = argparse.ArgumentParser(description="Photobooth - Capture and Print")
     parser.add_argument("--camera", "-c", type=int, default=0,
-                        help="Camera index (default: 0)")
+                        help="Camera index for OpenCV (default: 0)")
     parser.add_argument("--countdown", "-t", type=int, default=3,
                         help="Countdown seconds (default: 3, use 0 for instant)")
     parser.add_argument("--no-preview", action="store_true",
@@ -460,6 +567,10 @@ if __name__ == "__main__":
                         help="Number of photos for strip mode (default: 3)")
     parser.add_argument("--headless", action="store_true",
                         help="Run without GUI (for web server)")
+    parser.add_argument("--picamera", action="store_true",
+                        help="Force use of Pi Camera")
+    parser.add_argument("--opencv", action="store_true",
+                        help="Force use of OpenCV (USB webcam)")
     
     args = parser.parse_args()
     
@@ -467,11 +578,15 @@ if __name__ == "__main__":
     if args.headless:
         HEADLESS = True
     
+    # Set camera type
+    if args.picamera:
+        CAMERA_TYPE = 'picamera'
+    elif args.opencv:
+        CAMERA_TYPE = 'opencv'
+    
     countdown = 0 if args.no_preview else args.countdown
     
     if args.strip:
         photobooth_strip(camera_index=args.camera, countdown=countdown, num_photos=args.photos)
     else:
         photobooth(camera_index=args.camera, countdown=countdown)
-
-
