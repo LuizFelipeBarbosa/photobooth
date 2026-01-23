@@ -88,31 +88,27 @@ def detect_camera():
 
 def capture_photo_picamera(countdown=3):
     """Capture a photo using Pi Camera with proper AWB and exposure."""
-    from libcamera import controls
-    
     print("📷 Initializing Pi Camera...")
     
     picam = Picamera2()
     
-    # Configure for high quality still capture
-    # Use full sensor resolution for best quality
-    config = picam.create_still_configuration(
-        main={"size": (4056, 3040), "format": "RGB888"},  # Full resolution
-        buffer_count=2
+    # Get the camera's max resolution
+    camera_info = picam.sensor_resolution
+    print(f"📷 Camera sensor resolution: {camera_info}")
+    
+    # Create preview config (for warmup/AWB convergence)
+    preview_config = picam.create_preview_configuration()
+    
+    # Create still config at full sensor resolution
+    still_config = picam.create_still_configuration(
+        main={"size": camera_info}  # Use max sensor resolution
     )
-    picam.configure(config)
     
-    # Set controls for better image quality
-    picam.set_controls({
-        "AwbEnable": True,              # Auto white balance
-        "AeEnable": True,               # Auto exposure
-        "AfMode": controls.AfModeEnum.Continuous if hasattr(controls, 'AfModeEnum') else 0,  # Auto focus (if available)
-        "NoiseReductionMode": controls.draft.NoiseReductionModeEnum.HighQuality if hasattr(controls, 'draft') else 2,
-    })
-    
+    # Start with preview config for AWB/AE convergence
+    picam.configure(preview_config)
     picam.start()
     
-    # Wait longer for AWB and AE to converge (critical for good colors!)
+    # Wait for AWB and AE to converge (critical for good colors!)
     print("📷 Adjusting white balance and exposure...")
     time.sleep(2.0)
     print("📷 Pi Camera ready!")
@@ -123,19 +119,24 @@ def capture_photo_picamera(countdown=3):
             print(f"   {i}...")
             time.sleep(1)
     
-    # Capture
+    # Capture at full resolution
     print("📸 Smile!")
     
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     filename = f"photo_{timestamp}.jpg"
     filepath = os.path.join(PHOTOS_DIR, filename)
     
-    # Capture with high quality JPEG
-    picam.capture_file(filepath, format='jpeg', quality=95)
+    # Switch to still config and capture (this gives full resolution)
+    picam.switch_mode_and_capture_file(still_config, filepath)
+    
     picam.stop()
     picam.close()
     
-    print(f"✅ Photo saved: {filepath}")
+    # Verify the image size
+    from PIL import Image as PILImage
+    img = PILImage.open(filepath)
+    print(f"✅ Photo saved: {filepath} ({img.size[0]}x{img.size[1]})")
+    
     return filepath
 
 
@@ -241,26 +242,24 @@ def capture_photo(camera_index=0, countdown=3):
 
 def capture_photo_strip_picamera(num_photos=3, countdown=3):
     """Capture multiple photos for a photo strip using Pi Camera."""
-    from libcamera import controls
-    
     print(f"📷 Initializing Pi Camera for {num_photos} photos...")
     
     picam = Picamera2()
     
-    # Configure for high quality still capture
-    config = picam.create_still_configuration(
-        main={"size": (4056, 3040), "format": "RGB888"},
-        buffer_count=2
+    # Get the camera's max resolution
+    camera_info = picam.sensor_resolution
+    print(f"📷 Camera sensor resolution: {camera_info}")
+    
+    # Create preview config (for warmup/AWB convergence)
+    preview_config = picam.create_preview_configuration()
+    
+    # Create still config at full sensor resolution
+    still_config = picam.create_still_configuration(
+        main={"size": camera_info}
     )
-    picam.configure(config)
     
-    # Set controls for better image quality
-    picam.set_controls({
-        "AwbEnable": True,
-        "AeEnable": True,
-        "AfMode": controls.AfModeEnum.Continuous if hasattr(controls, 'AfModeEnum') else 0,
-    })
-    
+    # Start with preview config for AWB/AE convergence
+    picam.configure(preview_config)
     picam.start()
     
     # Wait for AWB and AE to converge
@@ -285,13 +284,16 @@ def capture_photo_strip_picamera(num_photos=3, countdown=3):
         filename = f"strip_{timestamp}_{i+1}.jpg"
         filepath = os.path.join(PHOTOS_DIR, filename)
         
-        picam.capture_file(filepath, format='jpeg', quality=95)
+        # Switch to still mode, capture, then back to preview for next shot
+        picam.switch_mode_and_capture_file(still_config, filepath)
+        
         photo_paths.append(filepath)
         print(f"   ✅ Captured!")
         
-        # Short pause between photos
+        # Switch back to preview for next countdown (if more photos)
         if i < num_photos - 1:
-            time.sleep(0.5)
+            picam.switch_mode(preview_config)
+            time.sleep(0.3)
     
     picam.stop()
     picam.close()
