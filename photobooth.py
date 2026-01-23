@@ -146,7 +146,7 @@ def capture_photo_picamera(countdown=3):
     return filepath
 
 
-def capture_photo_opencv(camera_index=0, countdown=3, width=1280, height=720):
+def capture_photo_opencv(camera_index=0, countdown=3, width=1920, height=1080):
     """Capture a photo using OpenCV (USB webcam)."""
     print(f"📷 Initializing camera ({width}x{height})...")
     
@@ -156,9 +156,18 @@ def capture_photo_opencv(camera_index=0, countdown=3, width=1280, height=720):
         print("❌ Could not open camera")
         return None
     
+    # Force MJPG to enable higher resolutions on Pi
+    fourcc = cv2.VideoWriter_fourcc(*'MJPG')
+    cap.set(cv2.CAP_PROP_FOURCC, fourcc)
+    
     # Set higher resolution if supported
     cap.set(cv2.CAP_PROP_FRAME_WIDTH, width)
     cap.set(cv2.CAP_PROP_FRAME_HEIGHT, height)
+    
+    # Verify what we actually got
+    actual_width = cap.get(cv2.CAP_PROP_FRAME_WIDTH)
+    actual_height = cap.get(cv2.CAP_PROP_FRAME_HEIGHT)
+    print(f"📷 Actual resolution: {int(actual_width)}x{int(actual_height)}")
     
     print("📷 Camera ready!")
     
@@ -236,7 +245,7 @@ def capture_photo_opencv(camera_index=0, countdown=3, width=1280, height=720):
     return filepath
 
 
-def capture_photo(camera_index=0, countdown=3, width=1280, height=720):
+def capture_photo(camera_index=0, countdown=3, width=1920, height=1080):
     """Capture a photo using the best available camera."""
     camera_type = detect_camera()
     
@@ -315,7 +324,7 @@ def capture_photo_strip_picamera(num_photos=3, countdown=3):
     return photo_paths
 
 
-def capture_photo_strip_opencv(camera_index=0, num_photos=3, countdown=3, width=1280, height=720):
+def capture_photo_strip_opencv(camera_index=0, num_photos=3, countdown=3, width=1920, height=1080):
     """Capture multiple photos for a photo strip using OpenCV."""
     print(f"📷 Photo strip mode: {num_photos} photos ({width}x{height})")
     print("📷 Initializing camera...")
@@ -326,8 +335,17 @@ def capture_photo_strip_opencv(camera_index=0, num_photos=3, countdown=3, width=
         print("❌ Could not open camera")
         return []
     
+    # Force MJPG to enable higher resolutions on Pi
+    fourcc = cv2.VideoWriter_fourcc(*'MJPG')
+    cap.set(cv2.CAP_PROP_FOURCC, fourcc)
+    
     cap.set(cv2.CAP_PROP_FRAME_WIDTH, width)
     cap.set(cv2.CAP_PROP_FRAME_HEIGHT, height)
+    
+    # Verify what we actually got
+    actual_width = cap.get(cv2.CAP_PROP_FRAME_WIDTH)
+    actual_height = cap.get(cv2.CAP_PROP_FRAME_HEIGHT)
+    print(f"📷 Actual resolution: {int(actual_width)}x{int(actual_height)}")
     
     photo_paths = []
     
@@ -411,7 +429,7 @@ def capture_photo_strip_opencv(camera_index=0, num_photos=3, countdown=3, width=
     return photo_paths
 
 
-def capture_photo_strip(camera_index=0, num_photos=3, countdown=3, width=1280, height=720):
+def capture_photo_strip(camera_index=0, num_photos=3, countdown=3, width=1920, height=1080):
     """Capture multiple photos using the best available camera."""
     camera_type = detect_camera()
     
@@ -536,7 +554,7 @@ def create_photo_strip(photo_paths, spacing=20):
     return strip_path
 
 
-def photobooth(camera_index=0, countdown=3, width=1280, height=720):
+def photobooth(camera_index=0, countdown=3, width=1920, height=1080):
     """Main photobooth function - capture and print a single photo."""
     print("\n" + "=" * 50)
     print("   📷 PHOTOBOOTH 📷")
@@ -562,7 +580,7 @@ def photobooth(camera_index=0, countdown=3, width=1280, height=720):
     return success
 
 
-def photobooth_strip(camera_index=0, countdown=3, num_photos=3, width=1280, height=720):
+def photobooth_strip(camera_index=0, countdown=3, num_photos=3, width=1920, height=1080):
     """Capture multiple photos, create a strip, and print it."""
     print("\n" + "=" * 50)
     print("   📷 PHOTOBOOTH - PHOTO STRIP MODE 📷")
@@ -615,10 +633,10 @@ if __name__ == "__main__":
                         help="Force use of Pi Camera")
     parser.add_argument("--opencv", action="store_true",
                         help="Force use of OpenCV (USB webcam)")
-    parser.add_argument("--width", type=int, default=1280,
-                        help="Webcam width (default: 1280)")
-    parser.add_argument("--height", type=int, default=720,
-                        help="Webcam height (default: 720)")
+    parser.add_argument("--width", type=int, default=1920,
+                        help="Webcam width (default: 1920)")
+    parser.add_argument("--height", type=int, default=1080,
+                        help="Webcam height (default: 1080)")
     
     args = parser.parse_args()
     
