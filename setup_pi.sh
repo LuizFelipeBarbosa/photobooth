@@ -14,9 +14,9 @@ echo "📸 Setting up Photobooth Service..."
 # We assume the user has cloned to /home/pi/photobooth as per standard pi setup.
 # If current directory is different, warn user?
 CURRENT_DIR=$(pwd)
-if [[ "$CURRENT_DIR" != "/home/pi/photobooth" ]]; then
+if [[ "$CURRENT_DIR" != "/home/pi2/Documents/photobooth" ]]; then
     echo "⚠️  Warning: Current directory is $CURRENT_DIR"
-    echo "   The service file expects /home/pi/photobooth."
+    echo "   The service file expects /home/pi2/Documents/photobooth."
     echo "   If this is incorrect, please edit 'photobooth.service' before continuing."
     read -p "   Press ENTER to continue or Ctrl+C to cancel..."
 fi
