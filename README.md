@@ -59,3 +59,18 @@ print_receipt(
 - **Vendor ID:** `0x0fe6`
 - **Product ID:** `0x811e`
 - **Model:** RONGTA USB Receipt Printer
+
+## Web Interface
+
+Run the web server to control the photobooth from your phone:
+
+```bash
+python server.py
+```
+
+- **Local URL:** `http://localhost:8080`
+- **Network URL:** The script will print a network URL (e.g., `http://192.168.1.5:8080`) that you can open on any device connected to the same Wi-Fi.
+
+### Features
+- **Single Photo:** Takes one photo and prints it instantly.
+- **Photo Strip:** Takes 3 photos with a countdown and gap between each, stitches them into a strip, and prints it.
