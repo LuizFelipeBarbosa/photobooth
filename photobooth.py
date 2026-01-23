@@ -468,9 +468,9 @@ def process_for_thermal(image_path):
     enhancer = ImageEnhance.Contrast(img)
     img = enhancer.enhance(1.2)
     
-    # Adjust brightness
-    brightness = ImageEnhance.Brightness(img)
-    img = brightness.enhance(1.1)
+    # Adjust brightness - REMOVED (was causing overexposure)
+    # brightness = ImageEnhance.Brightness(img)
+    # img = brightness.enhance(1.1)
     
     # Convert to 1-bit with dithering
     img = img.convert('1', dither=Image.Dither.FLOYDSTEINBERG)
