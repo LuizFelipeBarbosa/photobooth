@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Gallery - THE OCHO</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/style.css">
+    <style>
+        .gallery-container {
+            padding: 2rem;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .gallery-header {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            align-items: center;
+            margin-bottom: 2rem;
+        }
+
+        .back-btn {
+            background: none;
+            border: 2px solid rgba(255, 255, 255, 0.2);
+            color: white;
+            padding: 0.5rem 1rem;
+            border-radius: 50px;
+            cursor: pointer;
+            font-family: 'Outfit', sans-serif;
+            text-decoration: none;
+            transition: all 0.3s ease;
+        }
+
+        .back-btn:hover {
+            background: rgba(255, 255, 255, 0.1);
+            border-color: white;
+        }
+
+        .gallery-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+            gap: 1rem;
+        }
+
+        .photo-item {
+            position: relative;
+            background: #1a1a1a;
+            border-radius: 12px;
+            overflow: hidden;
+            aspect-ratio: 1;
+            cursor: pointer;
+            transition: transform 0.2s ease;
+        }
+        
+        /* Aspect ratio handling for strips vs photos */
+        /* But to keep grid uniform we might crop or fit? */
+        /* Let's just use object-fit: cover for thumbnails */
+
+        .photo-item:hover {
+            transform: scale(1.03);
+            z-index: 10;
+        }
+        
+        .photo-item img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+        }
+
+        /* Modal specific overrides or additions */
+        .reprint-btn {
+            background: var(--primary);
+            color: white;
+            border: none;
+            padding: 1rem 2rem;
+            border-radius: 50px;
+            font-size: 1.2rem;
+            font-weight: 600;
+            cursor: pointer;
+            margin-top: 1rem;
+            box-shadow: 0 4px 15px rgba(233, 69, 96, 0.4);
+            transition: all 0.3s ease;
+        }
+        
+        .reprint-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(233, 69, 96, 0.6);
+        }
+
+        .reprint-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .modal-buttons {
+            display: flex;
+            gap: 1rem;
+            justify-content: center;
+            margin-top: 1rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="gallery-container">
+        <header class="gallery-header">
+            <a href="/" class="back-btn">← Back</a>
+            <h1>Gallery</h1>
+            <div style="width: 80px;"></div> <!-- Spacer -->
+        </header>
+
+        <div id="gallery-grid" class="gallery-grid">
+            <!-- Photos will be loaded here -->
+            <div style="grid-column: 1/-1; text-align: center; color: #fff;">
+                Loading...
+            </div>
+        </div>
+    </div>
+
+    <!-- View/Reprint Modal -->
+    <div id="photo-modal" class="modal hidden">
+        <div class="modal-content">
+            <button class="close-btn" onclick="closeModal()">×</button>
+            <div class="photo-container">
+                <img id="modal-photo" src="" alt="Photo">
+            </div>
+            
+            <div class="modal-buttons">
+                <button id="reprintBtn" class="reprint-btn" onclick="reprintCurrent()">
+                    🖨️ Reprint
+                </button>
+            </div>
+            <p id="status-msg" style="margin-top:10px; height: 1.2em;"></p>
+        </div>
+    </div>
+
+    <script>
+        let currentPhoto = null;
+
+        async function loadPhotos() {
+            try {
+                const response = await fetch('/api/photos');
+                const data = await response.json();
+                renderGrid(data.photos);
+            } catch (e) {
+                console.error("Failed to load photos", e);
+                document.getElementById('gallery-grid').innerHTML = '<p>Failed to load photos.</p>';
+            }
+        }
+
+        function renderGrid(photos) {
+            const grid = document.getElementById('gallery-grid');
+            if (!photos || photos.length === 0) {
+                grid.innerHTML = '<p style="grid-column: 1/-1; text-align: center;">No photos yet!</p>';
+                return;
+            }
+            
+            grid.innerHTML = photos.map(photo => `
+                <div class="photo-item" onclick="openPhoto('${photo}')">
+                    <img src="/photos/${photo}" loading="lazy" alt="Photo">
+                </div>
+            `).join('');
+        }
+
+        function openPhoto(filename) {
+            currentPhoto = filename;
+            const modal = document.getElementById('photo-modal');
+            const img = document.getElementById('modal-photo');
+            
+            img.src = `/photos/${filename}`;
+            document.getElementById('status-msg').textContent = '';
+            document.getElementById('reprintBtn').disabled = false;
+            document.getElementById('reprintBtn').innerHTML = '🖨️ Reprint';
+            
+            modal.classList.remove('hidden');
+            modal.classList.add('visible');
+        }
+
+        function closeModal() {
+            const modal = document.getElementById('photo-modal');
+            modal.classList.remove('visible');
+            setTimeout(() => {
+                modal.classList.add('hidden');
+                currentPhoto = null;
+            }, 300);
+        }
+
+        async function reprintCurrent() {
+            if (!currentPhoto) return;
+            
+            const btn = document.getElementById('reprintBtn');
+            const msg = document.getElementById('status-msg');
+            
+            btn.disabled = true;
+            btn.innerHTML = 'Printing...';
+            msg.textContent = 'Sending to printer...';
+            
+            try {
+                const res = await fetch(`/api/reprint/${currentPhoto}`, { method: 'POST' });
+                const data = await res.json();
+                
+                if (data.status === 'success') {
+                    msg.textContent = '✅ Printing started!';
+                    setTimeout(() => {
+                        closeModal();
+                    }, 2000);
+                } else {
+                    msg.textContent = '❌ Error: ' + data.message;
+                    btn.disabled = false;
+                    btn.innerHTML = '🖨️ Reprint';
+                }
+            } catch (e) {
+                msg.textContent = '❌ Connection error';
+                btn.disabled = false;
+                btn.innerHTML = '🖨️ Reprint';
+            }
+        }
+
+        // Load initially
+        loadPhotos();
+    </script>
+</body>
+</html>

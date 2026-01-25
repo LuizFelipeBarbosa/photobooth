@@ -9,6 +9,7 @@ import threading
 from flask import Flask, render_template, jsonify, send_from_directory
 from flask_cors import CORS
 from photobooth import PhotoboothCamera, process_for_thermal, print_photo, create_photo_strip
+import glob
 
 # Set library path for libusb on macOS
 if sys.platform == "darwin":
@@ -45,10 +46,25 @@ def init_camera():
 init_camera()
 
 
+def get_sorted_photos():
+    """Get all photos sorted by newest first"""
+    # pattern match both jpg and png (though we mostly save jpg)
+    files = glob.glob(os.path.join(PHOTOS_DIR, "*.jpg"))
+    # Sort by modification time, newest first
+    files.sort(key=os.path.getmtime, reverse=True)
+    return [os.path.basename(f) for f in files]
+
+
 @app.route('/')
 def index():
     """Serve the main page"""
     return render_template('index.html')
+
+
+@app.route('/gallery')
+def gallery():
+    """Serve the gallery page"""
+    return render_template('gallery.html')
 
 
 @app.route('/api/status')
@@ -58,6 +74,44 @@ def status():
         "in_progress": photo_in_progress,
         **last_result
     })
+
+
+@app.route('/api/photos')
+def list_photos():
+    """Get list of all photos"""
+    photos = get_sorted_photos()
+    return jsonify({"photos": photos})
+
+
+@app.route('/api/reprint/<path:filename>', methods=['POST'])
+def reprint_photo(filename):
+    """Reprint a specific photo"""
+    try:
+        # Sanitize filename (basic check)
+        filename = os.path.basename(filename)
+        filepath = os.path.join(PHOTOS_DIR, filename)
+        
+        if not os.path.exists(filepath):
+            return jsonify({"status": "error", "message": "File not found"}), 404
+            
+        def do_print():
+            # Check for existing thermal version or process unique 
+            # (Photobooth.process_for_thermal handles creating the file)
+            # Determine if it's a strip based on filename or just try generic?
+            # Our filenames: "photo_..." or "photostrip_..."
+            is_strip = "photostrip" in filename
+            thermal_path = process_for_thermal(filepath, is_strip=is_strip)
+            print_photo(thermal_path)
+            
+        # Run in background to not block
+        thread = threading.Thread(target=do_print)
+        thread.start()
+        
+        return jsonify({"status": "success", "message": "Reprinting..."})
+        
+    except Exception as e:
+        print(f"Error reprinting: {e}")
+        return jsonify({"status": "error", "message": str(e)}), 500
 
 
 @app.route('/api/photo', methods=['POST'])
