@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <title>Gallery - THE OCHO</title>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
     <link rel="stylesheet" href="/static/style.css">
     <style>
         .gallery-container {
@@ -19,6 +20,7 @@
             gap: 1rem;
             align-items: center;
             margin-bottom: 2rem;
+            flex-wrap: wrap;
         }
 
         .back-btn {
@@ -30,7 +32,10 @@
             cursor: pointer;
             font-family: 'Outfit', sans-serif;
             text-decoration: none;
-            transition: all 0.3s ease;
+            transition: all 0.1s ease;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
         }
 
         .back-btn:hover {
@@ -38,29 +43,55 @@
             border-color: white;
         }
 
+        .filter-bar {
+            display: flex;
+            gap: 1rem;
+            flex-wrap: wrap;
+        }
+
+        .filter-btn {
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: white;
+            padding: 0.5rem 1rem;
+            border-radius: 50px;
+            cursor: pointer;
+            font-family: 'Outfit', sans-serif;
+            transition: all 0.1s ease;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .filter-btn.active {
+            background: var(--primary);
+            border-color: var(--primary);
+        }
+
+        .filter-btn:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
         .gallery-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-            gap: 1rem;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 1.5rem;
         }
 
         .photo-item {
             position: relative;
             background: #1a1a1a;
-            border-radius: 12px;
+            border-radius: 16px;
             overflow: hidden;
             aspect-ratio: 1;
             cursor: pointer;
-            transition: transform 0.2s ease;
+            transition: transform 0.1s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
         }
-        
-        /* Aspect ratio handling for strips vs photos */
-        /* But to keep grid uniform we might crop or fit? */
-        /* Let's just use object-fit: cover for thumbnails */
 
         .photo-item:hover {
-            transform: scale(1.03);
             z-index: 10;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.2);
         }
         
         .photo-item img {
@@ -68,6 +99,61 @@
             height: 100%;
             object-fit: cover;
             display: block;
+            transition: transform 0.1s ease;
+        }
+
+        .photo-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(to bottom, rgba(0,0,0,0) 0%, rgba(0,0,0,0.6) 100%);
+            opacity: 0;
+            transition: opacity 0.1s ease;
+            display: flex;
+            align-items: flex-end;
+            justify-content: center;
+            padding: 1rem;
+        }
+
+        .photo-item:hover .photo-overlay {
+            opacity: 1;
+        }
+
+        .action-btns {
+            display: flex;
+            gap: 1rem;
+        }
+
+        .action-btn {
+            background: rgba(255, 255, 255, 0.2);
+            border: none;
+            color: white;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            backdrop-filter: blur(5px);
+            transition: all 0.1s ease;
+        }
+
+        .action-btn:hover {
+            background: white;
+            color: var(--primary);
+            transform: scale(1.03);
+        }
+
+        .action-btn.liked {
+            color: #ff4757;
+            background: white;
+        }
+
+        .material-icons-round {
+            font-size: 20px;
         }
 
         /* Modal specific overrides or additions */
@@ -80,13 +166,14 @@
             font-size: 1.2rem;
             font-weight: 600;
             cursor: pointer;
-            margin-top: 1rem;
             box-shadow: 0 4px 15px rgba(233, 69, 96, 0.4);
-            transition: all 0.3s ease;
+            transition: all 0.1s ease;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
         }
         
         .reprint-btn:hover {
-            transform: translateY(-2px);
             box-shadow: 0 6px 20px rgba(233, 69, 96, 0.6);
         }
 
@@ -101,15 +188,95 @@
             gap: 1rem;
             justify-content: center;
             margin-top: 1rem;
+            flex-wrap: wrap;
         }
+
+        .modal-action-btn {
+            background: rgba(0,0,0,0.05);
+            border: 2px solid #eee;
+            color: #333;
+            padding: 0.8rem 1.5rem;
+            border-radius: 50px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            transition: all 0.1s ease;
+        }
+
+        .modal-action-btn:hover {
+            background: #f5f5f5;
+            border-color: #ddd;
+        }
+        
+
+        .modal-action-btn.liked {
+            color: #ff4757;
+            border-color: #ff4757;
+            background: rgba(255, 71, 87, 0.1);
+        }
+
+        /* Share Modal Styles */
+        .share-options {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+            width: 100%;
+            margin-top: 1rem;
+        }
+
+        .share-option-btn {
+            background: rgba(0,0,0,0.05);
+            border: 2px solid #eee;
+            color: #333;
+            padding: 1rem;
+            border-radius: 12px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.8rem;
+            transition: all 0.1s ease;
+            width: 100%;
+            text-decoration: none;
+        }
+
+        .share-option-btn:hover {
+            background: #f5f5f5;
+            border-color: #ddd;
+        }
+
+        .share-option-btn span {
+            font-size: 24px;
+        }
+
     </style>
 </head>
 <body>
     <div class="gallery-container">
         <header class="gallery-header">
-            <a href="/" class="back-btn">← Back</a>
-            <h1>Gallery</h1>
-            <div style="width: 80px;"></div> <!-- Spacer -->
+            <div style="display: flex; align-items: center; gap: 1rem;">
+                <a href="/" class="back-btn">
+                    <span class="material-icons-round">arrow_back</span> Back
+                </a>
+                <h1 style="margin: 0; font-size: 2rem;">Gallery</h1>
+            </div>
+            
+            <div class="filter-bar">
+                <button class="filter-btn active" id="sortDateDesc" onclick="setSort('date_desc')">
+                    <span class="material-icons-round">schedule</span> Newest
+                </button>
+                <button class="filter-btn" id="sortDateAsc" onclick="setSort('date_asc')">
+                    <span class="material-icons-round">history</span> Oldest
+                </button>
+                <button class="filter-btn" id="filterLikes" onclick="toggleFilterLikes()">
+                    <span class="material-icons-round">favorite_border</span> Favorites
+                </button>
+            </div>
         </header>
 
         <div id="gallery-grid" class="gallery-grid">
@@ -123,60 +290,275 @@
     <!-- View/Reprint Modal -->
     <div id="photo-modal" class="modal hidden">
         <div class="modal-content">
-            <button class="close-btn" onclick="closeModal()">×</button>
+            <button class="close-btn" onclick="closeModal()">
+                <span class="material-icons-round">close</span>
+            </button>
             <div class="photo-container">
                 <img id="modal-photo" src="" alt="Photo">
             </div>
             
             <div class="modal-buttons">
+                 <button id="modalLikeBtn" class="modal-action-btn" onclick="toggleLikeCurrent()">
+                    <span class="material-icons-round" id="modalLikeIcon">favorite_border</span> Like
+                </button>
+                
+                <button id="modalShareBtn" class="modal-action-btn" onclick="shareCurrent()">
+                    <span class="material-icons-round">ios_share</span> Share
+                </button>
+
                 <button id="reprintBtn" class="reprint-btn" onclick="reprintCurrent()">
-                    🖨️ Reprint
+                    <span class="material-icons-round">print</span> Reprint
                 </button>
             </div>
-            <p id="status-msg" style="margin-top:10px; height: 1.2em;"></p>
+            <p id="status-msg" style="margin-top:10px; height: 1.2em; color: #666;"></p>
+        </div>
+    </div>
+
+    <!-- Share Fallback Modal -->
+    <div id="share-modal" class="modal hidden">
+        <div class="modal-content" style="max-width: 350px;">
+            <button class="close-btn" onclick="closeShareModal()">
+                <span class="material-icons-round">close</span>
+            </button>
+            <h2 style="margin-top: 0; text-align: center;">Share Photo</h2>
+            
+            <div class="share-options">
+                <a id="share-download-link" href="#" download class="share-option-btn">
+                    <span class="material-icons-round">download</span> Save Image
+                </a>
+
+                <button class="share-option-btn" onclick="webShareFallback()" id="native-share-btn" style="display:none">
+                    <span class="material-icons-round">ios_share</span> More Options
+                </button>
+            </div>
+            <p id="share-status" style="text-align: center; margin-top: 1rem; height: 1.2rem; color: #666; font-size: 0.9rem;"></p>
         </div>
     </div>
 
     <script>
-        let currentPhoto = null;
+        let allPhotos = [];
+        let currentSort = 'date_desc';
+        let filterLiked = false;
+        let currentPhoto = null; // Object: {filename, timestamp, liked}
 
         async function loadPhotos() {
             try {
                 const response = await fetch('/api/photos');
                 const data = await response.json();
-                renderGrid(data.photos);
+                allPhotos = data.photos; // Expecting [{filename, timestamp, liked}, ...]
+                renderGrid();
             } catch (e) {
                 console.error("Failed to load photos", e);
                 document.getElementById('gallery-grid').innerHTML = '<p>Failed to load photos.</p>';
             }
         }
 
-        function renderGrid(photos) {
+        function setSort(type) {
+            currentSort = type;
+            // Update UI buttons
+            document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+            if(type === 'date_desc') document.getElementById('sortDateDesc').classList.add('active');
+            if(type === 'date_asc') document.getElementById('sortDateAsc').classList.add('active');
+            
+            renderGrid();
+        }
+
+        function toggleFilterLikes() {
+            filterLiked = !filterLiked;
+            const btn = document.getElementById('filterLikes');
+            if (filterLiked) {
+                btn.classList.add('active');
+                btn.querySelector('span').textContent = 'favorite';
+            } else {
+                btn.classList.remove('active');
+                btn.querySelector('span').textContent = 'favorite_border';
+            }
+            renderGrid();
+        }
+
+        function renderGrid() {
             const grid = document.getElementById('gallery-grid');
-            if (!photos || photos.length === 0) {
-                grid.innerHTML = '<p style="grid-column: 1/-1; text-align: center;">No photos yet!</p>';
+            
+            let displayPhotos = [...allPhotos];
+
+            // Filter
+            if (filterLiked) {
+                displayPhotos = displayPhotos.filter(p => p.liked);
+            }
+
+            // Sort
+            if (currentSort === 'date_desc') {
+                displayPhotos.sort((a, b) => b.timestamp - a.timestamp);
+            } else if (currentSort === 'date_asc') {
+                displayPhotos.sort((a, b) => a.timestamp - b.timestamp);
+            }
+
+            if (displayPhotos.length === 0) {
+                grid.innerHTML = '<p style="grid-column: 1/-1; text-align: center; font-size: 1.2rem; color: rgba(255,255,255,0.5);">No photos found.</p>';
                 return;
             }
             
-            grid.innerHTML = photos.map(photo => `
-                <div class="photo-item" onclick="openPhoto('${photo}')">
-                    <img src="/photos/${photo}" loading="lazy" alt="Photo">
+            grid.innerHTML = displayPhotos.map(photo => `
+                <div class="photo-item" onclick="openPhoto('${photo.filename}')">
+                    <img src="/thumbnails/${photo.filename}" loading="lazy" alt="Photo">
+                    <div class="photo-overlay">
+                        <div class="action-btns" onclick="event.stopPropagation()">
+                            <button class="action-btn ${photo.liked ? 'liked' : ''}" onclick="toggleLike('${photo.filename}', this)">
+                                <span class="material-icons-round">${photo.liked ? 'favorite' : 'favorite_border'}</span>
+                            </button>
+                            <button class="action-btn" onclick="sharePhoto('${photo.filename}')">
+                                <span class="material-icons-round">ios_share</span>
+                            </button>
+                        </div>
+                    </div>
                 </div>
             `).join('');
         }
 
+        async function toggleLike(filename, btnElement = null) {
+            // Optimistic update
+            const photo = allPhotos.find(p => p.filename === filename);
+            if (!photo) return;
+
+            const wasLiked = photo.liked;
+            photo.liked = !wasLiked;
+            
+            // Update UI immediately
+            if (btnElement) {
+                const icon = btnElement.querySelector('span');
+                if (photo.liked) {
+                    btnElement.classList.add('liked');
+                    icon.textContent = 'favorite';
+                } else {
+                    btnElement.classList.remove('liked');
+                    icon.textContent = 'favorite_border';
+                }
+            }
+            
+            // If we are in modal, update modal button too
+            if (currentPhoto && currentPhoto.filename === filename) {
+                updateModalLikeBtn(photo.liked);
+            }
+
+            try {
+                await fetch(`/api/like/${filename}`, { method: 'POST' });
+            } catch(e) {
+                console.error("Like failed", e);
+                // Revert
+                photo.liked = wasLiked;
+                renderGrid(); 
+            }
+            
+            // If filtering by favorites, we might need to remove/add item
+            if (filterLiked) renderGrid();
+        }
+
+        async function sharePhoto(filename) {
+            currentPhotoForShare = filename; // Store for the modal to use
+            const url = window.location.origin + `/photos/${filename}`;
+            const downloadLink = document.getElementById('share-download-link');
+            downloadLink.href = `/photos/${filename}`;
+            
+            // Try Native Share if available and secure
+            if (navigator.share && navigator.canShare) {
+                try {
+                   // Attempt to share
+                   const response = await fetch(url);
+                   const blob = await response.blob();
+                   const file = new File([blob], filename, { type: blob.type });
+                   
+                   if (navigator.canShare({ files: [file] })) {
+                       await navigator.share({
+                           files: [file],
+                           title: 'Photobooth Photo',
+                       });
+                       return; // Success!
+                   }
+                } catch (e) {
+                    console.log("Native share failed or cancelled, showing fallback", e);
+                }
+            }
+            
+            // Fallback: Show Modal
+            const modal = document.getElementById('share-modal');
+            modal.classList.remove('hidden');
+            setTimeout(() => modal.classList.add('visible'), 10);
+        }
+
+        let currentPhotoForShare = null;
+
+        function closeShareModal() {
+             const modal = document.getElementById('share-modal');
+             modal.classList.remove('visible');
+             setTimeout(() => {
+                 modal.classList.add('hidden');
+                 document.getElementById('share-status').textContent = '';
+             }, 300);
+        }
+
+
+        
+        function showShareStatus(msg) {
+            const el = document.getElementById('share-status');
+            el.textContent = msg;
+            setTimeout(() => el.textContent = '', 3000);
+        }
+
+        // Keep existing simple reference just in case
+        function webShareFallback() {
+             // This button is only shown if navigator.share exists but we are in modal for some reason
+             if(currentPhotoForShare) sharePhoto(currentPhotoForShare);
+        }
+
         function openPhoto(filename) {
-            currentPhoto = filename;
+            currentPhoto = allPhotos.find(p => p.filename === filename);
+            if (!currentPhoto) return;
+
             const modal = document.getElementById('photo-modal');
             const img = document.getElementById('modal-photo');
             
             img.src = `/photos/${filename}`;
             document.getElementById('status-msg').textContent = '';
-            document.getElementById('reprintBtn').disabled = false;
-            document.getElementById('reprintBtn').innerHTML = '🖨️ Reprint';
+            
+            const reprintBtn = document.getElementById('reprintBtn');
+            reprintBtn.disabled = false;
+            reprintBtn.innerHTML = '<span class="material-icons-round">print</span> Reprint';
+            
+            updateModalLikeBtn(currentPhoto.liked);
             
             modal.classList.remove('hidden');
             modal.classList.add('visible');
+        }
+
+        function updateModalLikeBtn(isLiked) {
+             const btn = document.getElementById('modalLikeBtn');
+             const icon = document.getElementById('modalLikeIcon');
+             if (isLiked) {
+                 btn.classList.add('liked');
+                 btn.style.color = '#ff4757';
+                 btn.style.borderColor = '#ff4757';
+                 btn.style.backgroundColor = 'rgba(255, 71, 87, 0.1)';
+                 icon.textContent = 'favorite';
+             } else {
+                 btn.classList.remove('liked');
+                 btn.style.color = '#333';
+                 btn.style.borderColor = '#eee';
+                 btn.style.backgroundColor = 'rgba(0,0,0,0.05)';
+                 icon.textContent = 'favorite_border';
+             }
+        }
+        
+        function toggleLikeCurrent() {
+            if(currentPhoto) {
+                toggleLike(currentPhoto.filename);
+                // currentPhoto reference is consistent with allPhotos, so it's updated handled in toggleLike
+            }
+        }
+        
+        function shareCurrent() {
+            if(currentPhoto) {
+                sharePhoto(currentPhoto.filename);
+            }
         }
 
         function closeModal() {
@@ -199,7 +581,7 @@
             msg.textContent = 'Sending to printer...';
             
             try {
-                const res = await fetch(`/api/reprint/${currentPhoto}`, { method: 'POST' });
+                const res = await fetch(`/api/reprint/${currentPhoto.filename}`, { method: 'POST' });
                 const data = await res.json();
                 
                 if (data.status === 'success') {
@@ -210,12 +592,12 @@
                 } else {
                     msg.textContent = '❌ Error: ' + data.message;
                     btn.disabled = false;
-                    btn.innerHTML = '🖨️ Reprint';
+                    btn.innerHTML = '<span class="material-icons-round">print</span> Reprint';
                 }
             } catch (e) {
                 msg.textContent = '❌ Connection error';
                 btn.disabled = false;
-                btn.innerHTML = '🖨️ Reprint';
+                btn.innerHTML = '<span class="material-icons-round">print</span> Reprint';
             }
         }
 

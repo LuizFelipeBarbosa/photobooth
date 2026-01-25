@@ -64,7 +64,7 @@
     </div>
 
     <script>
-        let polling = null;
+        let polling = false;
         let countdownInterval = null;
         const COUNTDOWN_SECONDS = 3;
 
@@ -182,86 +182,91 @@
         }
 
         function startPolling() {
-            if (polling) clearInterval(polling);
+            if (polling) return;
+            polling = true;
+            poll();
+        }
+        
+        async function poll() {
+            if (!polling) return;
             
-            polling = setInterval(async () => {
-                try {
-                    const response = await fetch('/api/status');
-                    const data = await response.json();
+            try {
+                const response = await fetch('/api/status');
+                const data = await response.json();
+                
+                const display = document.getElementById('countdown-display');
+
+                if (data.status === 'countdown') {
+                    // Backend is counting down
+                    const remaining = Math.ceil(data.target_timestamp - (Date.now() / 1000));
+                    display.classList.remove('hidden');
+                    display.textContent = remaining > 0 ? remaining : "📸";
+                    updateStatus('capturing', '⏱️', data.message || `Get ready... ${remaining}`);
                     
-                    const display = document.getElementById('countdown-display');
-
-                    if (data.status === 'countdown') {
-                        // Backend is counting down
-                        const remaining = Math.ceil(data.target_timestamp - (Date.now() / 1000));
-                        display.classList.remove('hidden');
-                        display.textContent = remaining > 0 ? remaining : "📸";
-                        updateStatus('capturing', '⏱️', data.message || `Get ready... ${remaining}`);
-                        
-                    } else if (data.status === 'capturing') {
-                        // Moment of capture
-                        display.classList.remove('hidden');
-                        display.textContent = '📸';
-                        // Only trigger flash if we haven't recently? 
-                        // It might trigger every 500ms while status is 'capturing'. 
-                        // That's okay, maybe simple logic:
-                        if (!display.classList.contains('flashed')) {
-                             triggerFlash();
-                             display.classList.add('flashed');
-                             setTimeout(() => display.classList.remove('flashed'), 1000);
-                        }
-                        updateStatus('capturing', '📸', data.message);
-
-                    } else if (data.status === 'waiting') {
-                        // Gap between photos
-                        const remaining = Math.ceil(data.target_timestamp - (Date.now() / 1000));
-                        display.classList.remove('hidden');
-                        display.textContent = '✋';
-                        updateStatus('capturing', '✋', `${data.message} (${remaining}s)`);
-
-                    } else if (data.status === 'processing') {
-                         display.classList.remove('hidden');
-                         display.textContent = '🖨️';
-                         updateStatus('capturing', '🖨️', data.message);
-
-                    } else if (data.status === 'success') {
-                        hideCountdown();
-                        stopPolling();
-                        
-                        // Show result!
-                        if (data.photo_url) {
-                            showModal(data.photo_url);
-                        } else {
-                            updateStatus('success', '🎉', data.message);
-                            setTimeout(() => {
-                                updateStatus('ready', '📷', 'Ready to capture!');
-                                enableButtons();
-                            }, 3000);
-                        }
-
-                    } else if (data.status === 'error') {
-                        hideCountdown();
-                        updateStatus('error', '❌', data.message);
-                        stopPolling();
-                        enableButtons();
+                } else if (data.status === 'capturing') {
+                    // Moment of capture
+                    display.classList.remove('hidden');
+                    display.textContent = '📸';
+                    // Only trigger flash if we haven't recently? 
+                    // It might trigger every 500ms while status is 'capturing'. 
+                    // That's okay, maybe simple logic:
+                    if (!display.classList.contains('flashed')) {
+                            triggerFlash();
+                            display.classList.add('flashed');
+                            setTimeout(() => display.classList.remove('flashed'), 1000);
                     }
-                } catch (error) {
-                    // Keep polling
+                    updateStatus('capturing', '📸', data.message);
+
+                } else if (data.status === 'waiting') {
+                    // Gap between photos
+                    const remaining = Math.ceil(data.target_timestamp - (Date.now() / 1000));
+                    display.classList.remove('hidden');
+                    display.textContent = '✋';
+                    updateStatus('capturing', '✋', `${data.message} (${remaining}s)`);
+
+                } else if (data.status === 'processing') {
+                        display.classList.remove('hidden');
+                        display.textContent = '🖨️';
+                        updateStatus('capturing', '🖨️', data.message);
+
+                } else if (data.status === 'success') {
+                    hideCountdown();
+                    stopPolling();
+                    
+                    // Show result!
+                    if (data.photo_url) {
+                        showModal(data.photo_url);
+                    } else {
+                        updateStatus('success', '🎉', data.message);
+                        setTimeout(() => {
+                            updateStatus('ready', '📷', 'Ready to capture!');
+                            enableButtons();
+                        }, 3000);
+                    }
+
+                } else if (data.status === 'error') {
+                    hideCountdown();
+                    updateStatus('error', '❌', data.message);
+                    stopPolling();
+                    enableButtons();
                 }
-            }, 200); // Poll faster for smoother countdown updates (200ms)
+            } catch (error) {
+                // Keep polling
+            }
+            
+            if (polling) {
+                setTimeout(poll, 200);
+            }
         }
 
         function stopPolling() {
-            if (polling) {
-                clearInterval(polling);
-                polling = null;
-            }
+            polling = false;
         }
 
         function showModal(url) {
             const modal = document.getElementById('photo-modal');
             const img = document.getElementById('result-photo');
-            img.src = url + '?t=' + new Date().getTime(); // Prevent caching
+            img.src = url; // Removed cache busting as we use unique filenames
             modal.classList.remove('hidden');
             modal.classList.add('visible');
             
@@ -303,7 +308,6 @@
                 disableButtons();
                 startPolling();
             }
-        });
-    </script>
+        });    </script>
 </body>
 </html>
