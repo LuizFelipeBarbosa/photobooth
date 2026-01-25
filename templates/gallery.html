@@ -161,7 +161,7 @@
             background: var(--primary);
             color: white;
             border: none;
-            padding: 1rem 2rem;
+            padding: 1rem 1rem;
             border-radius: 50px;
             font-size: 1.2rem;
             font-weight: 600;
@@ -218,42 +218,6 @@
             background: rgba(255, 71, 87, 0.1);
         }
 
-        /* Share Modal Styles */
-        .share-options {
-            display: flex;
-            flex-direction: column;
-            gap: 1rem;
-            width: 100%;
-            margin-top: 1rem;
-        }
-
-        .share-option-btn {
-            background: rgba(0,0,0,0.05);
-            border: 2px solid #eee;
-            color: #333;
-            padding: 1rem;
-            border-radius: 12px;
-            font-size: 1rem;
-            font-weight: 600;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 0.8rem;
-            transition: all 0.1s ease;
-            width: 100%;
-            text-decoration: none;
-        }
-
-        .share-option-btn:hover {
-            background: #f5f5f5;
-            border-color: #ddd;
-        }
-
-        .share-option-btn span {
-            font-size: 24px;
-        }
-
     </style>
 </head>
 <body>
@@ -302,10 +266,6 @@
                     <span class="material-icons-round" id="modalLikeIcon">favorite_border</span> Like
                 </button>
                 
-                <button id="modalShareBtn" class="modal-action-btn" onclick="shareCurrent()">
-                    <span class="material-icons-round">ios_share</span> Share
-                </button>
-
                 <button id="reprintBtn" class="reprint-btn" onclick="reprintCurrent()">
                     <span class="material-icons-round">print</span> Reprint
                 </button>
@@ -314,26 +274,7 @@
         </div>
     </div>
 
-    <!-- Share Fallback Modal -->
-    <div id="share-modal" class="modal hidden">
-        <div class="modal-content" style="max-width: 350px;">
-            <button class="close-btn" onclick="closeShareModal()">
-                <span class="material-icons-round">close</span>
-            </button>
-            <h2 style="margin-top: 0; text-align: center;">Share Photo</h2>
-            
-            <div class="share-options">
-                <a id="share-download-link" href="#" download class="share-option-btn">
-                    <span class="material-icons-round">download</span> Save Image
-                </a>
-
-                <button class="share-option-btn" onclick="webShareFallback()" id="native-share-btn" style="display:none">
-                    <span class="material-icons-round">ios_share</span> More Options
-                </button>
-            </div>
-            <p id="share-status" style="text-align: center; margin-top: 1rem; height: 1.2rem; color: #666; font-size: 0.9rem;"></p>
-        </div>
-    </div>
+    <!-- Share Fallback Modal REMOVED -->
 
     <script>
         let allPhotos = [];
@@ -406,9 +347,7 @@
                             <button class="action-btn ${photo.liked ? 'liked' : ''}" onclick="toggleLike('${photo.filename}', this)">
                                 <span class="material-icons-round">${photo.liked ? 'favorite' : 'favorite_border'}</span>
                             </button>
-                            <button class="action-btn" onclick="sharePhoto('${photo.filename}')">
-                                <span class="material-icons-round">ios_share</span>
-                            </button>
+
                         </div>
                     </div>
                 </div>
@@ -453,62 +392,7 @@
             if (filterLiked) renderGrid();
         }
 
-        async function sharePhoto(filename) {
-            currentPhotoForShare = filename; // Store for the modal to use
-            const url = window.location.origin + `/photos/${filename}`;
-            const downloadLink = document.getElementById('share-download-link');
-            downloadLink.href = `/photos/${filename}`;
-            
-            // Try Native Share if available and secure
-            if (navigator.share && navigator.canShare) {
-                try {
-                   // Attempt to share
-                   const response = await fetch(url);
-                   const blob = await response.blob();
-                   const file = new File([blob], filename, { type: blob.type });
-                   
-                   if (navigator.canShare({ files: [file] })) {
-                       await navigator.share({
-                           files: [file],
-                           title: 'Photobooth Photo',
-                       });
-                       return; // Success!
-                   }
-                } catch (e) {
-                    console.log("Native share failed or cancelled, showing fallback", e);
-                }
-            }
-            
-            // Fallback: Show Modal
-            const modal = document.getElementById('share-modal');
-            modal.classList.remove('hidden');
-            setTimeout(() => modal.classList.add('visible'), 10);
-        }
 
-        let currentPhotoForShare = null;
-
-        function closeShareModal() {
-             const modal = document.getElementById('share-modal');
-             modal.classList.remove('visible');
-             setTimeout(() => {
-                 modal.classList.add('hidden');
-                 document.getElementById('share-status').textContent = '';
-             }, 300);
-        }
-
-
-        
-        function showShareStatus(msg) {
-            const el = document.getElementById('share-status');
-            el.textContent = msg;
-            setTimeout(() => el.textContent = '', 3000);
-        }
-
-        // Keep existing simple reference just in case
-        function webShareFallback() {
-             // This button is only shown if navigator.share exists but we are in modal for some reason
-             if(currentPhotoForShare) sharePhoto(currentPhotoForShare);
-        }
 
         function openPhoto(filename) {
             currentPhoto = allPhotos.find(p => p.filename === filename);
@@ -555,11 +439,7 @@
             }
         }
         
-        function shareCurrent() {
-            if(currentPhoto) {
-                sharePhoto(currentPhoto.filename);
-            }
-        }
+
 
         function closeModal() {
             const modal = document.getElementById('photo-modal');
