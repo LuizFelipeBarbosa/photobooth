@@ -22,10 +22,8 @@ if sys.platform == "darwin":
 # Get paths
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 PHOTOS_DIR = os.path.join(SCRIPT_DIR, "photos")
-THUMBNAILS_DIR = os.path.join(PHOTOS_DIR, "thumbnails")
+PHOTOS_DIR = os.path.join(SCRIPT_DIR, "photos")
 
-if not os.path.exists(THUMBNAILS_DIR):
-    os.makedirs(THUMBNAILS_DIR)
 
 app = Flask(__name__, static_folder='static', template_folder='templates')
 CORS(app)
@@ -76,48 +74,7 @@ def save_metadata():
 # Load metadata on startup
 load_metadata()
 
-def generate_thumbnail(filename):
-    """Generate a thumbnail for a given filename if it doesn't exist"""
-    try:
-        original_path = os.path.join(PHOTOS_DIR, filename)
-        thumb_path = os.path.join(THUMBNAILS_DIR, filename)
-        
-        # skip if already exists
-        if os.path.exists(thumb_path):
-            return True
-            
-        if not os.path.exists(original_path):
-            return False
 
-        with Image.open(original_path) as img:
-            # Convert to RGB if necessary (e.g. for PNGs with alpha if saving as JPG, though we likely save as same format)
-            if img.mode in ('RGBA', 'P'):
-                img = img.convert('RGB')
-                
-            img.thumbnail((800, 800), Image.Resampling.LANCZOS)
-            img.save(thumb_path, quality=95)
-            
-        return True
-    except Exception as e:
-        print(f"Error generating thumbnail for {filename}: {e}")
-        return False
-
-def init_thumbnails():
-    """Generate thumbnails for all existing photos in background"""
-    print("⏳ Checking thumbnails...")
-    files = glob.glob(os.path.join(PHOTOS_DIR, "*.*"))
-    count = 0
-    for f in files:
-        filename = os.path.basename(f)
-        if filename == "metadata.json" or os.path.isdir(f):
-            continue
-            
-        if generate_thumbnail(filename):
-             count += 1
-    print(f"✅ Thumbnails ready ({count} checked/generated)")
-
-# Run thumbnail generation in background on startup
-threading.Thread(target=init_thumbnails).start()
 
 
 def get_sorted_photos():
@@ -255,9 +212,7 @@ def take_photo():
                 # then print asynchronously.
                 # But 'photobooth.py' logic was capture -> process -> print.
                 
-                # Generate thumbnail immediately
-                generate_thumbnail(filename)
-
+                
                 thermal_path = process_for_thermal(filepath)
                 print_photo(thermal_path)
                 
@@ -344,9 +299,7 @@ def take_strip():
                         "photo_url": f"/photos/{filename}"
                     }
                     
-                    # Generate thumbnail immediately
-                    generate_thumbnail(filename)
-
+                    
                     thermal_path = process_for_thermal(strip_path, is_strip=True)
                     print_photo(thermal_path)
                 else:
@@ -374,12 +327,7 @@ def serve_photo(filename):
     return response
 
 
-@app.route('/thumbnails/<path:filename>')
-def serve_thumbnail(filename):
-    """Serve thumbnails"""
-    response = send_from_directory(THUMBNAILS_DIR, filename)
-    response.headers['Cache-Control'] = 'public, max-age=31536000'
-    return response
+
 
 
 if __name__ == '__main__':

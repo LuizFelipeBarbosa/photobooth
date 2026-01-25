@@ -341,7 +341,7 @@
             
             grid.innerHTML = displayPhotos.map(photo => `
                 <div class="photo-item" onclick="openPhoto('${photo.filename}')">
-                    <img src="/thumbnails/${photo.filename}" loading="lazy" alt="Photo">
+                    <img src="/photos/${photo.filename}" loading="lazy" alt="Photo">
                     <div class="photo-overlay">
                         <div class="action-btns" onclick="event.stopPropagation()">
                             <button class="action-btn ${photo.liked ? 'liked' : ''}" onclick="toggleLike('${photo.filename}', this)">
