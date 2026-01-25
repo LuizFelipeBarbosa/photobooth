@@ -94,8 +94,8 @@ def generate_thumbnail(filename):
             if img.mode in ('RGBA', 'P'):
                 img = img.convert('RGB')
                 
-            img.thumbnail((400, 400))
-            img.save(thumb_path)
+            img.thumbnail((800, 800), Image.Resampling.LANCZOS)
+            img.save(thumb_path, quality=95)
             
         return True
     except Exception as e:
