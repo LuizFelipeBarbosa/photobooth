@@ -259,9 +259,7 @@ def print_photo(image_path):
     try:
         printer = Usb(VENDOR_ID, PRODUCT_ID, 0)
         printer.set(align='center', bold=True, double_height=True, double_width=True)
-        printer.text("THE OCHO\n")
-        printer.set(align='center', bold=False, double_height=False, double_width=False)
-        printer.text("PHOTOBOOTH\n")
+        printer.text("THE BEST PHOTOBOOTH\n")
         
         printer.set(align='center', font='b')
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M")
