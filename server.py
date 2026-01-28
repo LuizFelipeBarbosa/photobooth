@@ -178,6 +178,36 @@ def reprint_photo(filename):
         return jsonify({"status": "error", "message": str(e)}), 500
 
 
+@app.route('/api/delete/<path:filename>', methods=['POST'])
+def delete_photo(filename):
+    """Delete a photo and its associated data"""
+    try:
+        filename = os.path.basename(filename)
+        filepath = os.path.join(PHOTOS_DIR, filename)
+        
+        if not os.path.exists(filepath):
+            return jsonify({"status": "error", "message": "File not found"}), 404
+            
+        # Delete original file
+        os.remove(filepath)
+        
+        # Delete thermal version if exists
+        thermal_path = filepath.replace('.jpg', '_thermal.png')
+        if os.path.exists(thermal_path):
+            os.remove(thermal_path)
+            
+        # Remove from metadata
+        if filename in photo_metadata:
+            del photo_metadata[filename]
+            save_metadata()
+            
+        return jsonify({"status": "success", "message": "Photo deleted"})
+        
+    except Exception as e:
+        print(f"Error deleting photo: {e}")
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+
 @app.route('/api/photo', methods=['POST'])
 def take_photo():
     """Take a single photo using the persistent camera"""

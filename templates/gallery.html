@@ -183,6 +183,34 @@
             transform: none;
         }
 
+        .delete-btn {
+            background: rgba(255, 71, 87, 0.1);
+            color: #ff4757;
+            border: 1px solid rgba(255, 71, 87, 0.3);
+            padding: 0.8rem 1.5rem;
+            border-radius: 50px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            transition: all 0.1s ease;
+        }
+
+        .delete-btn:hover {
+            background: #ff4757;
+            color: white;
+            border-color: #ff4757;
+            box-shadow: 0 4px 15px rgba(255, 71, 87, 0.4);
+        }
+
+        .delete-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
         .modal-buttons {
             display: flex;
             gap: 1rem;
@@ -269,7 +297,12 @@
                 <button id="reprintBtn" class="reprint-btn" onclick="reprintCurrent()">
                     <span class="material-icons-round">print</span> Reprint
                 </button>
+
+                <button id="deleteBtn" class="delete-btn" onclick="deleteCurrent()">
+                    <span class="material-icons-round">delete</span> Delete
+                </button>
             </div>
+
             <p id="status-msg" style="margin-top:10px; height: 1.2em; color: #666;"></p>
         </div>
     </div>
@@ -407,6 +440,10 @@
             const reprintBtn = document.getElementById('reprintBtn');
             reprintBtn.disabled = false;
             reprintBtn.innerHTML = '<span class="material-icons-round">print</span> Reprint';
+
+            const deleteBtn = document.getElementById('deleteBtn');
+            deleteBtn.disabled = false;
+            deleteBtn.innerHTML = '<span class="material-icons-round">delete</span> Delete';
             
             updateModalLikeBtn(currentPhoto.liked);
             
@@ -439,7 +476,6 @@
             }
         }
         
-
 
         function closeModal() {
             const modal = document.getElementById('photo-modal');
@@ -478,6 +514,45 @@
                 msg.textContent = '❌ Connection error';
                 btn.disabled = false;
                 btn.innerHTML = '<span class="material-icons-round">print</span> Reprint';
+            }
+        }
+
+        async function deleteCurrent() {
+            if (!currentPhoto) return;
+            
+            if (!confirm("Are you sure you want to delete this photo? This cannot be undone.")) {
+                return;
+            }
+
+            const btn = document.getElementById('deleteBtn');
+            const msg = document.getElementById('status-msg');
+            
+            btn.disabled = true;
+            btn.innerHTML = 'Deleting...';
+            
+            try {
+                const res = await fetch(`/api/delete/${currentPhoto.filename}`, { method: 'POST' });
+                const data = await res.json();
+                
+                if (data.status === 'success') {
+                    msg.textContent = '✅ Photo deleted!';
+                    
+                    // Remove from local array
+                    allPhotos = allPhotos.filter(p => p.filename !== currentPhoto.filename);
+                    renderGrid();
+                    
+                    setTimeout(() => {
+                        closeModal();
+                    }, 1000);
+                } else {
+                    msg.textContent = '❌ Error: ' + data.message;
+                    btn.disabled = false;
+                    btn.innerHTML = '<span class="material-icons-round">delete</span> Delete';
+                }
+            } catch (e) {
+                msg.textContent = '❌ Connection error';
+                btn.disabled = false;
+                btn.innerHTML = '<span class="material-icons-round">delete</span> Delete';
             }
         }
 
