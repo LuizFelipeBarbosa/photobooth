@@ -22,10 +22,10 @@ if sys.platform == "darwin":
 # Get paths
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 PHOTOS_DIR = os.path.join(SCRIPT_DIR, "photos")
-PHOTOS_DIR = os.path.join(SCRIPT_DIR, "photos")
+FRONTEND_DIR = os.path.join(SCRIPT_DIR, "frontend", "dist")
 
 
-app = Flask(__name__, static_folder='static', template_folder='templates')
+app = Flask(__name__, static_folder=FRONTEND_DIR, static_url_path='')
 CORS(app)
 
 # Global Camera Instance
@@ -101,14 +101,14 @@ def get_sorted_photos():
 
 @app.route('/')
 def index():
-    """Serve the main page"""
-    return render_template('index.html')
+    """Serve the React app"""
+    return send_from_directory(FRONTEND_DIR, 'index.html')
 
 
 @app.route('/gallery')
 def gallery():
-    """Serve the gallery page"""
-    return render_template('gallery.html')
+    """Serve the React app (SPA routing)"""
+    return send_from_directory(FRONTEND_DIR, 'index.html')
 
 
 @app.route('/api/status')
