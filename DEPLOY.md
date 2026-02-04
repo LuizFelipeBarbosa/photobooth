@@ -71,26 +71,6 @@ ssh pi2@10.0.0.71 "sudo journalctl -u photobooth -f"
 
 Access the app at: http://10.0.0.71:8080
 
-## Optional: Pi Hotspot + Captive Portal
-
-Use this when the Pi should host its own Wi-Fi network and open the photobooth UI automatically for clients.
-
-On the Pi:
-
-```bash
-cd ~/photobooth
-sudo HOTSPOT_SSID="Photobooth" HOTSPOT_PSK="change-me-now" ./setup_pi_hotspot.sh
-```
-
-Defaults:
-- Hotspot IP: `10.42.0.1`
-- App port: `8080`
-- Captive portal redirect: all HTTP (`:80`) traffic to `:8080`
-
-After connecting a phone to the hotspot, the portal should open automatically. If not, open `http://neverssl.com`.
-To SSH while on the hotspot network, use `ssh pi2@10.42.0.1`.
-Hotspot services are not enabled on boot; after reboot, the Pi returns to normal Wi-Fi/internet mode and you run the script again when needed.
-
 ## Updating Python Dependencies
 
 If you add new Python packages:
