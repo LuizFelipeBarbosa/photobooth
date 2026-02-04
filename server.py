@@ -158,6 +158,9 @@ def get_sorted_photos():
     photo_list = []
     for f in files:
         filename = os.path.basename(f)
+        if filename.startswith("strip_"):
+            # Strip source shots are internal; only show final outputs in gallery.
+            continue
         timestamp = os.path.getmtime(f)
         is_liked = photo_metadata.get(filename, {}).get("liked", False)
         
