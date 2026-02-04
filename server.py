@@ -114,6 +114,28 @@ def gallery():
     return send_from_directory(FRONTEND_DIR, 'index.html')
 
 
+@app.route('/generate_204')
+@app.route('/gen_204')
+@app.route('/hotspot-detect.html')
+@app.route('/library/test/success.html')
+@app.route('/success.txt')
+@app.route('/connecttest.txt')
+@app.route('/msftconnecttest.txt')
+@app.route('/ncsi.txt')
+@app.route('/fwlink')
+@app.route('/canonical.html')
+@app.route('/mobile/status.php')
+@app.route('/kindle-wifi/wifistub.html')
+@app.route('/redirect')
+def captive_portal_probe():
+    """
+    Handle common captive-portal probe endpoints.
+    Returning the app HTML encourages phones to open the login/portal browser,
+    which then lands on the photobooth UI.
+    """
+    return send_from_directory(FRONTEND_DIR, 'index.html')
+
+
 @app.route('/api/status')
 def status():
     """Get current status"""

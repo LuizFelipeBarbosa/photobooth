@@ -54,6 +54,20 @@ rsync -avz --exclude 'venv' --exclude 'node_modules' --exclude '.git' \
 ssh pi2@YOUR_PI_IP "sudo systemctl restart photobooth"
 ```
 
+### Raspberry Pi Hotspot + Captive Portal
+
+To let guests connect directly to the Pi and automatically land on the photobooth:
+
+```bash
+ssh pi2@YOUR_PI_IP
+cd ~/photobooth
+sudo HOTSPOT_SSID="Photobooth" HOTSPOT_PSK="change-me-now" ./setup_pi_hotspot.sh
+```
+
+After setup, connecting to the hotspot should open the captive portal and load the app on `http://10.42.0.1:8080`.
+To SSH while on hotspot, connect to that Wi-Fi and use `ssh pi2@10.42.0.1`.
+Hotspot autostart is intentionally disabled; reboot returns normal Wi-Fi/internet mode, and you re-run the script when you want hotspot mode again.
+
 ## Project Structure
 
 ```
