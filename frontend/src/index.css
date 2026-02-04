@@ -1,62 +1,309 @@
 @import "tailwindcss";
 
-/* Custom CSS Variables matching original design */
+/* ========================================
+   THE OCHO Photobooth - Design System
+   ======================================== */
+
+/* CSS Custom Properties */
 :root {
-  --bg-gradient-start: #1a1a2e;
-  --bg-gradient-end: #16213e;
-  --primary: #e94560;
-  --primary-glow: rgba(233, 69, 96, 0.4);
-  --secondary: #0f3460;
-  --secondary-glow: rgba(15, 52, 96, 0.6);
-  --success: #00d26a;
-  --error: #ff4757;
+  /* Colors */
+  --color-bg-primary: #0f0f1a;
+  --color-bg-secondary: #1a1a2e;
+  --color-bg-tertiary: #252540;
+  
+  --color-accent-primary: #ff3366;
+  --color-accent-secondary: #ff6b6b;
+  --color-accent-glow: rgba(255, 51, 102, 0.5);
+  
+  --color-blue-primary: #4facfe;
+  --color-blue-secondary: #00f2fe;
+  --color-blue-glow: rgba(79, 172, 254, 0.5);
+  
+  --color-success: #00d9a3;
+  --color-warning: #ffc107;
+  --color-error: #ff4757;
+  
+  --color-text-primary: #ffffff;
+  --color-text-secondary: rgba(255, 255, 255, 0.7);
+  --color-text-muted: rgba(255, 255, 255, 0.5);
+  
+  /* Gradients */
+  --gradient-bg: radial-gradient(ellipse at top, var(--color-bg-secondary) 0%, var(--color-bg-primary) 50%, #000000 100%);
+  --gradient-accent: linear-gradient(135deg, var(--color-accent-primary) 0%, var(--color-accent-secondary) 100%);
+  --gradient-blue: linear-gradient(135deg, var(--color-blue-primary) 0%, var(--color-blue-secondary) 100%);
+  --gradient-gold: linear-gradient(135deg, #f5af19 0%, #f12711 100%);
+  
+  /* Shadows */
+  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.2);
+  --shadow-md: 0 4px 20px rgba(0, 0, 0, 0.3);
+  --shadow-lg: 0 8px 40px rgba(0, 0, 0, 0.4);
+  --shadow-glow-pink: 0 0 40px var(--color-accent-glow);
+  --shadow-glow-blue: 0 0 40px var(--color-blue-glow);
+  
+  /* Spacing */
+  --spacing-xs: 0.25rem;
+  --spacing-sm: 0.5rem;
+  --spacing-md: 1rem;
+  --spacing-lg: 1.5rem;
+  --spacing-xl: 2rem;
+  --spacing-2xl: 3rem;
+  
+  /* Border Radius */
+  --radius-sm: 8px;
+  --radius-md: 16px;
+  --radius-lg: 24px;
+  --radius-xl: 32px;
+  --radius-full: 9999px;
+  
+  /* Transitions */
+  --transition-fast: 150ms ease;
+  --transition-base: 300ms ease;
+  --transition-slow: 500ms ease;
+  --transition-spring: 400ms cubic-bezier(0.175, 0.885, 0.32, 1.275);
 }
 
-/* Base styles */
+/* ========================================
+   Base Styles
+   ======================================== */
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  scroll-behavior: smooth;
+}
+
 body {
-  font-family: 'Outfit', sans-serif;
-  background: linear-gradient(135deg, var(--bg-gradient-start) 0%, var(--bg-gradient-end) 100%);
+  font-family: 'Space Grotesk', sans-serif;
+  background: var(--gradient-bg);
   min-height: 100vh;
-  color: white;
+  min-height: 100dvh;
+  color: var(--color-text-primary);
   overflow-x: hidden;
+  line-height: 1.6;
 }
 
-/* Animations */
-@keyframes pulse {
+/* Decorative background elements */
+body::before {
+  content: '';
+  position: fixed;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background: 
+    radial-gradient(circle at 20% 30%, rgba(255, 51, 102, 0.08) 0%, transparent 40%),
+    radial-gradient(circle at 80% 70%, rgba(79, 172, 254, 0.08) 0%, transparent 40%);
+  pointer-events: none;
+  z-index: -1;
+  animation: bgFloat 20s ease-in-out infinite;
+}
 
-  0%,
-  100% {
+/* ========================================
+   Typography
+   ======================================== */
+
+.font-display {
+  font-family: 'Playfair Display', serif;
+}
+
+.font-body {
+  font-family: 'Space Grotesk', sans-serif;
+}
+
+/* ========================================
+   Animations
+   ======================================== */
+
+@keyframes bgFloat {
+  0%, 100% { transform: translate(0, 0) rotate(0deg); }
+  33% { transform: translate(2%, 2%) rotate(1deg); }
+  66% { transform: translate(-1%, 1%) rotate(-1deg); }
+}
+
+@keyframes pulse-glow {
+  0%, 100% { 
+    box-shadow: 0 0 20px var(--color-accent-glow), 0 0 40px rgba(255, 51, 102, 0.2);
     transform: scale(1);
-    opacity: 1;
   }
-
-  50% {
-    transform: scale(1.05);
-    opacity: 0.9;
+  50% { 
+    box-shadow: 0 0 30px var(--color-accent-glow), 0 0 60px rgba(255, 51, 102, 0.3);
+    transform: scale(1.02);
   }
 }
 
-@keyframes modalPop {
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+@keyframes bounce-subtle {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-5px); }
+}
+
+@keyframes spin-slow {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@keyframes modal-in {
   0% {
-    transform: scale(0.8);
     opacity: 0;
+    transform: scale(0.9) translateY(20px);
   }
-
   100% {
-    transform: scale(1);
     opacity: 1;
+    transform: scale(1) translateY(0);
   }
 }
 
-.animate-pulse-scale {
-  animation: pulse 1s infinite;
+@keyframes slide-up {
+  0% {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
-.animate-modal-pop {
-  animation: modalPop 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+@keyframes countdown-pulse {
+  0%, 100% {
+    transform: scale(1);
+    text-shadow: 0 0 40px var(--color-accent-glow);
+  }
+  50% {
+    transform: scale(1.1);
+    text-shadow: 0 0 80px var(--color-accent-glow), 0 0 120px rgba(255, 51, 102, 0.5);
+  }
 }
 
-/* Flash animation */
+@keyframes flash {
+  0% { opacity: 0; }
+  10% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+@keyframes gradient-shift {
+  0%, 100% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+}
+
+/* ========================================
+   Utility Classes
+   ======================================== */
+
+.animate-pulse-glow {
+  animation: pulse-glow 2s ease-in-out infinite;
+}
+
+.animate-float {
+  animation: float 3s ease-in-out infinite;
+}
+
+.animate-shimmer {
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.1) 50%,
+    transparent 100%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 2s infinite;
+}
+
+.animate-bounce-subtle {
+  animation: bounce-subtle 2s ease-in-out infinite;
+}
+
+.animate-spin-slow {
+  animation: spin-slow 8s linear infinite;
+}
+
+.animate-modal-in {
+  animation: modal-in 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+}
+
+.animate-slide-up {
+  animation: slide-up 0.5s ease forwards;
+}
+
+.animate-countdown {
+  animation: countdown-pulse 1s ease-in-out infinite;
+}
+
+/* Gradient text */
+.text-gradient {
+  background: var(--gradient-accent);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.text-gradient-blue {
+  background: var(--gradient-blue);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Glass effect */
+.glass {
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.glass-strong {
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(30px);
+  -webkit-backdrop-filter: blur(30px);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+/* Button styles */
+.btn-primary {
+  background: var(--gradient-accent);
+  box-shadow: 0 8px 32px rgba(255, 51, 102, 0.3);
+  transition: all var(--transition-base);
+}
+
+.btn-primary:hover {
+  box-shadow: 0 12px 48px rgba(255, 51, 102, 0.4);
+  transform: translateY(-2px);
+}
+
+.btn-primary:active {
+  transform: translateY(0) scale(0.98);
+}
+
+.btn-secondary {
+  background: var(--gradient-blue);
+  box-shadow: 0 8px 32px rgba(79, 172, 254, 0.3);
+  transition: all var(--transition-base);
+}
+
+.btn-secondary:hover {
+  box-shadow: 0 12px 48px rgba(79, 172, 254, 0.4);
+  transform: translateY(-2px);
+}
+
+.btn-secondary:active {
+  transform: translateY(0) scale(0.98);
+}
+
+/* Flash overlay */
 .flash-overlay {
   position: fixed;
   top: 0;
@@ -67,9 +314,99 @@ body {
   opacity: 0;
   pointer-events: none;
   z-index: 9999;
-  transition: opacity 0.1s ease-out;
+  transition: opacity 0.15s ease-out;
 }
 
 .flash-overlay.active {
-  opacity: 1;
+  animation: flash 0.3s ease-out;
+}
+
+/* Card hover effect */
+.card-hover {
+  transition: all var(--transition-base);
+}
+
+.card-hover:hover {
+  transform: translateY(-4px) scale(1.02);
+  box-shadow: var(--shadow-lg);
+}
+
+/* Photo frame */
+.photo-frame {
+  position: relative;
+  background: white;
+  padding: 12px;
+  box-shadow: 
+    0 4px 6px rgba(0, 0, 0, 0.1),
+    0 10px 20px rgba(0, 0, 0, 0.1),
+    0 0 0 1px rgba(255, 255, 255, 0.1);
+  transform: rotate(-2deg);
+  transition: transform var(--transition-base);
+}
+
+.photo-frame:hover {
+  transform: rotate(0deg) scale(1.02);
+}
+
+.photo-frame::before {
+  content: '';
+  position: absolute;
+  top: -4px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 40px;
+  height: 12px;
+  background: linear-gradient(135deg, #e0e0e0 0%, #c0c0c0 100%);
+  border-radius: 2px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+/* Status badges */
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  border-radius: var(--radius-full);
+  font-weight: 500;
+  font-size: 0.875rem;
+}
+
+.status-badge::before {
+  content: '';
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.status-badge.ready { color: var(--color-text-secondary); }
+.status-badge.capturing { color: var(--color-accent-primary); }
+.status-badge.success { color: var(--color-success); }
+.status-badge.error { color: var(--color-error); }
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+/* Selection */
+::selection {
+  background: var(--color-accent-primary);
+  color: white;
 }
