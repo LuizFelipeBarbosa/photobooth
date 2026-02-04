@@ -61,7 +61,7 @@ To let guests connect directly to the Pi and automatically land on the photoboot
 ```bash
 ssh pi2@YOUR_PI_IP
 cd ~/photobooth
-sudo HOTSPOT_SSID="Photobooth" HOTSPOT_PSK="change-me-now" ./setup_pi_hotspot.sh
+sudo HOTSPOT_SSID="Photobooth" ./setup_pi_hotspot.sh
 ```
 
 After setup, connecting to the hotspot should open the captive portal and load the app on `http://10.42.0.1:8080`.

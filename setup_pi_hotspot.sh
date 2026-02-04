@@ -12,7 +12,6 @@ set -euo pipefail
 # Optional overrides:
 #   HOTSPOT_IFACE=wlan0
 #   HOTSPOT_SSID=Photobooth
-#   HOTSPOT_PSK=change-me-now
 #   HOTSPOT_COUNTRY=US
 #   HOTSPOT_CHANNEL=6
 #   HOTSPOT_AP_IP=10.42.0.1
@@ -32,7 +31,6 @@ fi
 
 HOTSPOT_IFACE="${HOTSPOT_IFACE:-wlan0}"
 HOTSPOT_SSID="${HOTSPOT_SSID:-Photobooth}"
-HOTSPOT_PSK="${HOTSPOT_PSK:-photobooth123}"
 HOTSPOT_COUNTRY="${HOTSPOT_COUNTRY:-US}"
 HOTSPOT_CHANNEL="${HOTSPOT_CHANNEL:-6}"
 HOTSPOT_AP_IP="${HOTSPOT_AP_IP:-10.42.0.1}"
@@ -44,11 +42,6 @@ HOTSPOT_APP_PORT="${HOTSPOT_APP_PORT:-8080}"
 HOTSPOT_ALLOW_SSH="${HOTSPOT_ALLOW_SSH:-true}"
 HOTSPOT_SSH_PORT="${HOTSPOT_SSH_PORT:-22}"
 PHOTOBOOTH_SERVICE="${PHOTOBOOTH_SERVICE:-photobooth.service}"
-
-if [[ "${#HOTSPOT_PSK}" -lt 8 || "${#HOTSPOT_PSK}" -gt 63 ]]; then
-  echo "HOTSPOT_PSK must be 8-63 characters."
-  exit 1
-fi
 
 if [[ "${HOTSPOT_ALLOW_SSH}" != "true" && "${HOTSPOT_ALLOW_SSH}" != "false" ]]; then
   echo "HOTSPOT_ALLOW_SSH must be 'true' or 'false'."
@@ -100,11 +93,6 @@ channel=${HOTSPOT_CHANNEL}
 macaddr_acl=0
 auth_algs=1
 ignore_broadcast_ssid=0
-wpa=2
-wpa_passphrase=${HOTSPOT_PSK}
-wpa_key_mgmt=WPA-PSK
-wpa_pairwise=TKIP
-rsn_pairwise=CCMP
 ieee80211n=1
 wmm_enabled=1
 EOF
@@ -164,7 +152,7 @@ fi
 echo
 echo "Hotspot ready."
 echo "SSID: ${HOTSPOT_SSID}"
-echo "Password: ${HOTSPOT_PSK}"
+echo "Security: OPEN (no password)"
 echo "Portal URL: http://${HOTSPOT_AP_IP}:${HOTSPOT_APP_PORT}"
 if [[ "${HOTSPOT_ALLOW_SSH}" == "true" ]]; then
   echo "SSH: ssh <user>@${HOTSPOT_AP_IP} -p ${HOTSPOT_SSH_PORT}"
