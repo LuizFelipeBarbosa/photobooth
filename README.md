@@ -54,27 +54,6 @@ rsync -avz --exclude 'venv' --exclude 'node_modules' --exclude '.git' \
 ssh pi2@YOUR_PI_IP "sudo systemctl restart photobooth"
 ```
 
-### Guest Network + Captive Portal
-
-To make the Pi broadcast its own guest Wi-Fi and auto-redirect clients to the web app:
-
-```bash
-ssh pi2@YOUR_PI_IP
-cd ~/Documents/photobooth
-sudo ./setup_pi_hotspot.sh
-```
-
-Defaults:
-- SSID: `Photobooth`
-- App URL: `http://10.42.0.1:8080`
-- Captive portal redirect service on port `80` (all HTTP requests redirect to the app)
-
-Optional overrides:
-
-```bash
-sudo PB_SSID="MyGuestNetwork" PB_PASS="StrongPassword123" PB_APP_URL="http://10.42.0.1:8080" ./setup_pi_hotspot.sh
-```
-
 ## Project Structure
 
 ```

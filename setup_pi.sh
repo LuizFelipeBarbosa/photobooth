@@ -1,49 +1,108 @@
-#!/bin/bash
+#!/usr/bin/env bash
+set -euo pipefail
 
-# Setup script for Photobooth Auto-Start on Raspberry Pi
+# Setup script for Photobooth auto-start on Raspberry Pi.
+# Usage:
+#   sudo ./setup_pi.sh
+#
+# Optional overrides:
+#   PB_SERVICE_USER=pi
+#   PB_APP_DIR=/home/pi/photobooth
+#   PB_PYTHON_BIN=/home/pi/photobooth/venv/bin/python
+#   PB_START_NOW=true
 
-# 1. Check if running as root
-if [ "$EUID" -ne 0 ]
-  then echo "Please run as root (sudo ./setup_pi.sh)"
-  exit
+if [[ "${EUID}" -ne 0 ]]; then
+  echo "Please run as root (sudo ./setup_pi.sh)"
+  exit 1
 fi
 
-echo "📸 Setting up Photobooth Service..."
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SERVICE_TEMPLATE="${SCRIPT_DIR}/photobooth.service"
+SERVICE_DEST="/etc/systemd/system/photobooth.service"
 
-# 2. Update paths in service file if needed (optional dynamic replace, but keeping simple for now)
-# We assume the user has cloned to /home/pi/photobooth as per standard pi setup.
-# If current directory is different, warn user?
-CURRENT_DIR=$(pwd)
-if [[ "$CURRENT_DIR" != "/home/pi2/Documents/photobooth" ]]; then
-    echo "⚠️  Warning: Current directory is $CURRENT_DIR"
-    echo "   The service file expects /home/pi2/Documents/photobooth."
-    echo "   If this is incorrect, please edit 'photobooth.service' before continuing."
-    read -p "   Press ENTER to continue or Ctrl+C to cancel..."
+if [[ ! -f "${SERVICE_TEMPLATE}" ]]; then
+  echo "Service template not found: ${SERVICE_TEMPLATE}"
+  exit 1
 fi
 
-# 3. Copy service file to systemd directory
-echo "Copying service file..."
-cp photobooth.service /etc/systemd/system/photobooth.service
+if [[ -n "${PB_SERVICE_USER:-}" ]]; then
+  SERVICE_USER="${PB_SERVICE_USER}"
+elif [[ -n "${SUDO_USER:-}" && "${SUDO_USER}" != "root" ]]; then
+  SERVICE_USER="${SUDO_USER}"
+else
+  SERVICE_USER="$(stat -c '%U' "${SCRIPT_DIR}")"
+fi
 
-# 4. Reload systemd daemon
+if [[ -z "${SERVICE_USER}" || "${SERVICE_USER}" == "root" ]]; then
+  echo "Could not determine a non-root service user."
+  echo "Re-run with PB_SERVICE_USER=<your_pi_user> sudo ./setup_pi.sh"
+  exit 1
+fi
+
+if ! id "${SERVICE_USER}" >/dev/null 2>&1; then
+  echo "User does not exist: ${SERVICE_USER}"
+  exit 1
+fi
+
+APP_DIR="${PB_APP_DIR:-${SCRIPT_DIR}}"
+if [[ ! -d "${APP_DIR}" ]]; then
+  echo "App directory not found: ${APP_DIR}"
+  exit 1
+fi
+
+PYTHON_BIN="${PB_PYTHON_BIN:-${APP_DIR}/venv/bin/python}"
+if [[ ! -x "${PYTHON_BIN}" ]]; then
+  if command -v python3 >/dev/null 2>&1; then
+    PYTHON_BIN="$(command -v python3)"
+    echo "Warning: venv python not found, using system python: ${PYTHON_BIN}"
+  else
+    echo "Python executable not found: ${PYTHON_BIN}"
+    exit 1
+  fi
+fi
+
+START_NOW="${PB_START_NOW:-true}"
+
+escape_sed_replacement() {
+  printf '%s' "$1" | sed -e 's/[\\/&|]/\\&/g'
+}
+
+SERVICE_USER_ESCAPED="$(escape_sed_replacement "${SERVICE_USER}")"
+APP_DIR_ESCAPED="$(escape_sed_replacement "${APP_DIR}")"
+PYTHON_BIN_ESCAPED="$(escape_sed_replacement "${PYTHON_BIN}")"
+
+TMP_SERVICE="$(mktemp)"
+trap 'rm -f "${TMP_SERVICE}"' EXIT
+
+sed \
+  -e "s|{{PHOTOBOOTH_USER}}|${SERVICE_USER_ESCAPED}|g" \
+  -e "s|{{PHOTOBOOTH_DIR}}|${APP_DIR_ESCAPED}|g" \
+  -e "s|{{PHOTOBOOTH_PYTHON}}|${PYTHON_BIN_ESCAPED}|g" \
+  "${SERVICE_TEMPLATE}" > "${TMP_SERVICE}"
+
+echo "Installing systemd service..."
+cp "${TMP_SERVICE}" "${SERVICE_DEST}"
+
 echo "Reloading systemd daemon..."
 systemctl daemon-reload
 
-# 5. Enable service to start on boot
 echo "Enabling service on boot..."
 systemctl enable photobooth.service
 
-# 6. Start the service now?
-read -p "Do you want to start the service now? (y/n) " -n 1 -r
-echo
-if [[ $REPLY =~ ^[Yy]$ ]]
-then
-    echo "Starting service..."
+if [[ "${START_NOW}" == "true" ]]; then
+  if systemctl is-active --quiet photobooth.service; then
+    echo "Restarting photobooth service..."
+    systemctl restart photobooth.service
+  else
+    echo "Starting photobooth service..."
     systemctl start photobooth.service
-    echo "Service started! Checking status..."
-    systemctl status photobooth.service --no-pager
+  fi
+  systemctl status photobooth.service --no-pager
 else
-    echo "Service enabled but not started. Reboot or run 'sudo systemctl start photobooth.service' to start."
+  echo "Service enabled but not started (PB_START_NOW=${START_NOW})."
 fi
 
-echo "✅ Setup Complete!"
+echo "Setup complete."
+echo "Service user: ${SERVICE_USER}"
+echo "App directory: ${APP_DIR}"
+echo "Python bin: ${PYTHON_BIN}"

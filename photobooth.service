@@ -3,15 +3,12 @@ Description=Photobooth Web Server
 After=network.target
 
 [Service]
-# Adjust these paths to match your Raspberry Pi setup
-# Assuming standard user 'pi' and repository cloned to /home/pi/photobooth
-User=pi2
-WorkingDirectory=/home/pi2/Documents/photobooth
+# setup_pi.sh replaces these placeholders during install.
+User={{PHOTOBOOTH_USER}}
+WorkingDirectory={{PHOTOBOOTH_DIR}}
 Environment=PYTHONUNBUFFERED=1
 
-# Command to run the server
-# WE ASSUME YOUR VIRTUAL ENV IS NAMED 'venv'
-ExecStart=/home/pi2/Documents/photobooth/venv/bin/python server.py
+ExecStart={{PHOTOBOOTH_PYTHON}} server.py
 
 # Restart automatically if it crashes
 Restart=always
