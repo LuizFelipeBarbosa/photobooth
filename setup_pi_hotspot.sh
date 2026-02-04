@@ -1,12 +1,14 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Configure Raspberry Pi as a standalone Wi-Fi hotspot + generate QR codes.
+# Configure Raspberry Pi as a standalone Wi-Fi hotspot + captive portal + QR codes.
 # Run this ON the Pi as root: sudo ./setup_pi_hotspot.sh
 #
 # Optional env overrides:
 #   PB_SSID="Photobooth"
 #   PB_PASS="your_password"
+#   PB_APP_URL="http://10.42.0.1:8080"
+#   PB_ENABLE_CAPTIVE_PORTAL="true"
 
 if [[ "${EUID}" -ne 0 ]]; then
   echo "Please run as root (sudo ./setup_pi_hotspot.sh)"
@@ -15,10 +17,74 @@ fi
 
 SSID="${PB_SSID:-Photobooth}"
 PASS="${PB_PASS:-}"
+APP_URL="${PB_APP_URL:-http://10.42.0.1:8080}"
+ENABLE_CAPTIVE_PORTAL="${PB_ENABLE_CAPTIVE_PORTAL:-true}"
 ADMIN_DIR="/home/pi2/photobooth/admin"
 QR_DIR="/home/pi2/photobooth/qr"
-GW_CIDR="10.42.0.1/24"
+GATEWAY_IP="10.42.0.1"
+GW_CIDR="${GATEWAY_IP}/24"
 DHCP_RANGE="10.42.0.50,10.42.0.150,255.255.255.0,12h"
+
+install_captive_portal_service() {
+  install -d -m 755 /usr/local/bin
+  cat > /usr/local/bin/photobooth-captive-portal.py <<'PYEOF'
+#!/usr/bin/env python3
+from http.server import BaseHTTPRequestHandler, HTTPServer
+import os
+
+APP_URL = os.environ.get("APP_URL", "http://10.42.0.1:8080")
+
+
+class RedirectHandler(BaseHTTPRequestHandler):
+    def _redirect(self, send_body):
+        self.send_response(302)
+        self.send_header("Location", APP_URL)
+        self.send_header("Cache-Control", "no-store, no-cache, must-revalidate")
+        self.send_header("Pragma", "no-cache")
+        self.send_header("Content-Length", "0")
+        self.end_headers()
+        if send_body:
+            self.wfile.write(b"")
+
+    def do_GET(self):
+        self._redirect(send_body=True)
+
+    def do_POST(self):
+        self._redirect(send_body=True)
+
+    def do_HEAD(self):
+        self._redirect(send_body=False)
+
+    def log_message(self, _fmt, *_args):
+        return
+
+
+if __name__ == "__main__":
+    HTTPServer(("0.0.0.0", 80), RedirectHandler).serve_forever()
+PYEOF
+  chmod 755 /usr/local/bin/photobooth-captive-portal.py
+
+  cat > /etc/systemd/system/photobooth-captive-portal.service <<EOF
+[Unit]
+Description=Photobooth Captive Portal Redirector
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+Environment=APP_URL=${APP_URL}
+ExecStart=/usr/bin/python3 /usr/local/bin/photobooth-captive-portal.py
+Restart=always
+RestartSec=2
+User=root
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+  systemctl daemon-reload
+  systemctl enable --now photobooth-captive-portal.service
+}
 
 if [[ -z "${PASS}" ]]; then
   PASS="$(openssl rand -base64 18 | tr -d '/+=' | cut -c1-16)"
@@ -35,6 +101,11 @@ fi
 
 if [[ "${use_nm}" == "true" ]]; then
   echo "Using NetworkManager to configure AP..."
+  install -d -m 755 /etc/NetworkManager/dnsmasq-shared.d
+  cat > /etc/NetworkManager/dnsmasq-shared.d/photobooth-captive.conf <<EOF
+address=/#/${GATEWAY_IP}
+EOF
+
   if nmcli con show PhotoboothAP >/dev/null 2>&1; then
     nmcli con delete PhotoboothAP
   fi
@@ -82,13 +153,18 @@ EOF
   cat > /etc/dnsmasq.conf <<EOF
 interface=wlan0
 dhcp-range=${DHCP_RANGE}
-dhcp-option=3,10.42.0.1
-dhcp-option=6,10.42.0.1
+dhcp-option=3,${GATEWAY_IP}
+dhcp-option=6,${GATEWAY_IP}
+address=/#/${GATEWAY_IP}
 EOF
 
   systemctl restart dhcpcd
   systemctl unmask hostapd
   systemctl enable --now hostapd dnsmasq
+fi
+
+if [[ "${ENABLE_CAPTIVE_PORTAL}" == "true" ]]; then
+  install_captive_portal_service
 fi
 
 if ! command -v qrencode >/dev/null 2>&1; then
@@ -98,7 +174,7 @@ fi
 
 install -d -m 755 "${QR_DIR}"
 qrencode -o "${QR_DIR}/wifi.png" "WIFI:T:WPA;S:${SSID};P:${PASS};H:false;;"
-qrencode -o "${QR_DIR}/app.png" "http://10.42.0.1:8080"
+qrencode -o "${QR_DIR}/app.png" "${APP_URL}"
 
 cat > "${QR_DIR}/index.html" <<'EOF'
 <!doctype html>
@@ -136,3 +212,6 @@ echo "Hotspot configured."
 echo "SSID: ${SSID}"
 echo "Password stored at: ${ADMIN_DIR}/ap-credentials.txt"
 echo "QR codes at: ${QR_DIR}/wifi.png and ${QR_DIR}/app.png"
+if [[ "${ENABLE_CAPTIVE_PORTAL}" == "true" ]]; then
+  echo "Captive portal enabled: clients are redirected to ${APP_URL}"
+fi

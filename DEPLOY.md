@@ -71,6 +71,29 @@ ssh pi2@10.0.0.71 "sudo journalctl -u photobooth -f"
 
 Access the app at: http://10.0.0.71:8080
 
+## Configure Guest Wi-Fi + Captive Portal
+
+If you want guests to connect directly to the Pi instead of venue Wi-Fi:
+
+```bash
+ssh pi2@YOUR_PI_IP
+cd ~/Documents/photobooth
+sudo ./setup_pi_hotspot.sh
+```
+
+What this configures:
+- Wi-Fi hotspot on `wlan0` (default SSID `Photobooth`)
+- Gateway at `10.42.0.1`
+- QR codes in `/home/pi2/photobooth/qr`
+- Captive portal redirect on port `80` to `http://10.42.0.1:8080`
+
+Check status:
+
+```bash
+sudo systemctl status photobooth-captive-portal --no-pager
+sudo ss -ltnp | grep ':80'
+```
+
 ## Updating Python Dependencies
 
 If you add new Python packages:
