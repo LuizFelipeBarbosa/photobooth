@@ -15,6 +15,9 @@ photos/
 # macOS
 .DS_Store
 
+# Local env config (contains secrets)
+.env
+
 # IDE
 .idea/
 .vscode/

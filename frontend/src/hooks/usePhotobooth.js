@@ -1,4 +1,5 @@
 import { useState, useCallback, useRef, useEffect } from 'react'
+import { apiFetch } from '../lib/api'
 
 export default function usePhotobooth() {
     const [status, setStatus] = useState('ready')
@@ -35,7 +36,7 @@ export default function usePhotobooth() {
         if (!pollingRef.current) return
 
         try {
-            const response = await fetch('/api/status')
+            const response = await apiFetch('/api/status')
             const data = await response.json()
 
             if (data.status === 'countdown') {
@@ -124,7 +125,7 @@ export default function usePhotobooth() {
         setIsCapturing(true)
         flashedRef.current = false
 
-        const fetchPromise = fetch('/api/photo', { method: 'POST' })
+        const fetchPromise = apiFetch('/api/photo', { method: 'POST' })
 
         await runCountdown(3, '📸 Single Photo')
         updateStatus('capturing', '🖨️', 'Processing & printing...')
@@ -153,7 +154,7 @@ export default function usePhotobooth() {
         flashedRef.current = false
 
         try {
-            const response = await fetch('/api/strip', { method: 'POST' })
+            const response = await apiFetch('/api/strip', { method: 'POST' })
             const data = await response.json()
 
             if (!response.ok) {
@@ -176,7 +177,7 @@ export default function usePhotobooth() {
 
     // Check initial status on mount
     useEffect(() => {
-        fetch('/api/status')
+        apiFetch('/api/status')
             .then((r) => r.json())
             .then((data) => {
                 if (data.in_progress) {
