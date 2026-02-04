@@ -165,7 +165,8 @@ def reprint_photo(filename):
             # Check for existing thermal version or process unique 
             # (Photobooth.process_for_thermal handles creating the file)
             # Determine if it's a strip based on filename or just try generic?
-            # Our filenames: "photo_..." or "photostrip_..."
+            # Our primary filenames: "photo_..." or "photostrip_..."
+            # Strip source captures are stored as "strip_..." and should be treated as non-strip.
             is_strip = "photostrip" in filename
             thermal_path = process_for_thermal(filepath, is_strip=is_strip)
             print_photo(thermal_path)
@@ -305,7 +306,7 @@ def take_strip():
                 }
                 
                 # Capture immediately (countdown=0 because we handled it)
-                path = camera.capture(countdown=0)
+                path = camera.capture(countdown=0, filename_prefix="strip")
                 if path:
                     photo_paths.append(path)
                 

@@ -160,7 +160,7 @@ class PhotoboothCamera:
             self.cap.release()
             cv2.destroyAllWindows()
 
-    def capture(self, countdown=0):
+    def capture(self, countdown=0, filename_prefix="photo"):
         # Handle countdown (blocking, for sync)
         if countdown > 0:
             print(f"📷 Waiting {countdown}s...")
@@ -169,7 +169,7 @@ class PhotoboothCamera:
         print("📸 SNAP!")
         
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        filename = f"photo_{timestamp}.jpg"
+        filename = f"{filename_prefix}_{timestamp}.jpg"
         filepath = os.path.join(PHOTOS_DIR, filename)
 
         if self.camera_type == 'picamera':
@@ -213,7 +213,7 @@ class PhotoboothCamera:
                 
             print(f"\n📸 Strip Photo {i+1}/{num_photos}")
             # Ensure full countdown for every photo so users can prep
-            path = self.capture(countdown)
+            path = self.capture(countdown, filename_prefix="strip")
             if path:
                 photo_paths.append(path)
                 
