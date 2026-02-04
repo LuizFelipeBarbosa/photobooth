@@ -79,7 +79,7 @@ On the Pi:
 
 ```bash
 cd ~/photobooth
-sudo HOTSPOT_SSID="Photobooth" ./setup_pi_hotspot.sh
+sudo HOTSPOT_SSID="Photobooth" HOTSPOT_PSK="change-me-now" ./setup_pi_hotspot.sh
 ```
 
 Defaults:
