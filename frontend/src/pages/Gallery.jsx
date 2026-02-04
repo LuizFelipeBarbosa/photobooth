@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { Link } from 'react-router-dom'
 import PhotoModal from '../components/PhotoModal'
-import { apiFetch } from '../lib/api'
 
 export default function Gallery() {
   const [photos, setPhotos] = useState([])
@@ -15,7 +14,7 @@ export default function Gallery() {
 
   const loadPhotos = useCallback(async () => {
     try {
-      const response = await apiFetch('/api/photos')
+      const response = await fetch('/api/photos')
       const data = await response.json()
       setPhotos(data.photos || [])
     } catch (e) {
@@ -62,7 +61,7 @@ export default function Gallery() {
     }
 
     try {
-      await apiFetch(`/api/like/${filename}`, { method: 'POST' })
+      await fetch(`/api/like/${filename}`, { method: 'POST' })
     } catch (e) {
       // Revert on error
       setPhotos((prev) =>
@@ -78,7 +77,7 @@ export default function Gallery() {
     setStatusMsg('Sending to printer...')
 
     try {
-      const res = await apiFetch(`/api/reprint/${selectedPhoto.filename}`, {
+      const res = await fetch(`/api/reprint/${selectedPhoto.filename}`, {
         method: 'POST',
       })
       const data = await res.json()
@@ -107,7 +106,7 @@ export default function Gallery() {
     setStatusMsg('Deleting...')
 
     try {
-      const res = await apiFetch(`/api/delete/${selectedPhoto.filename}`, {
+      const res = await fetch(`/api/delete/${selectedPhoto.filename}`, {
         method: 'POST',
       })
       const data = await res.json()

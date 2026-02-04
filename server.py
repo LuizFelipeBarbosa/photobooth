@@ -7,11 +7,11 @@ import os
 import sys
 import threading
 import json
-import hmac
-from flask import Flask, jsonify, request, send_from_directory, session
+from flask import Flask, render_template, jsonify, send_from_directory
 from flask_cors import CORS
 from photobooth import PhotoboothCamera, process_for_thermal, print_photo, create_photo_strip
 import glob
+from PIL import Image
 
 # Set library path for libusb on macOS
 if sys.platform == "darwin":
@@ -27,24 +27,6 @@ FRONTEND_DIR = os.path.join(SCRIPT_DIR, "frontend", "dist")
 
 app = Flask(__name__, static_folder=FRONTEND_DIR, static_url_path='')
 CORS(app)
-app.config["SESSION_COOKIE_HTTPONLY"] = True
-app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
-app.config["SESSION_COOKIE_SECURE"] = (
-    os.environ.get("PHOTOBOOTH_SECURE_COOKIES", "false").lower() == "true"
-)
-
-session_secret = os.environ.get("PHOTOBOOTH_SESSION_SECRET")
-if session_secret:
-    app.secret_key = session_secret
-else:
-    # Keeps sessions working in development when no secret is configured.
-    # Set PHOTOBOOTH_SESSION_SECRET in production to persist sessions across restarts.
-    app.secret_key = os.urandom(32)
-    print("⚠️  PHOTOBOOTH_SESSION_SECRET is not set. Using a temporary secret.")
-
-API_PASSWORD = os.environ.get("PHOTOBOOTH_API_PASSWORD", "photobooth")
-if API_PASSWORD == "photobooth":
-    print("⚠️  Using default API password. Set PHOTOBOOTH_API_PASSWORD to secure access.")
 
 # Global Camera Instance
 camera = None
@@ -91,61 +73,6 @@ def save_metadata():
 
 # Load metadata on startup
 load_metadata()
-
-
-PUBLIC_API_PATHS = {
-    "/api/auth/login",
-    "/api/auth/status",
-}
-
-
-def is_api_authenticated():
-    return session.get("api_authenticated") is True
-
-
-@app.before_request
-def require_api_authentication():
-    """Require an authenticated session for API routes."""
-    if not request.path.startswith("/api/"):
-        return None
-
-    if request.method == "OPTIONS":
-        return None
-
-    if request.path in PUBLIC_API_PATHS:
-        return None
-
-    if is_api_authenticated():
-        return None
-
-    return jsonify({"status": "error", "message": "Authentication required"}), 401
-
-
-@app.route('/api/auth/status')
-def auth_status():
-    """Check whether the current session is authenticated."""
-    return jsonify({"authenticated": is_api_authenticated()})
-
-
-@app.route('/api/auth/login', methods=['POST'])
-def auth_login():
-    """Start an authenticated session using the configured API password."""
-    payload = request.get_json(silent=True) or {}
-    password = str(payload.get("password", ""))
-
-    if not hmac.compare_digest(password, API_PASSWORD):
-        session.pop("api_authenticated", None)
-        return jsonify({"status": "error", "message": "Invalid password"}), 401
-
-    session["api_authenticated"] = True
-    return jsonify({"status": "success"})
-
-
-@app.route('/api/auth/logout', methods=['POST'])
-def auth_logout():
-    """End the current authenticated session."""
-    session.pop("api_authenticated", None)
-    return jsonify({"status": "success"})
 
 
 

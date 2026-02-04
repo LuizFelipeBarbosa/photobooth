@@ -7,7 +7,6 @@ After=network.target
 User={{PHOTOBOOTH_USER}}
 WorkingDirectory={{PHOTOBOOTH_DIR}}
 Environment=PYTHONUNBUFFERED=1
-EnvironmentFile=-{{PHOTOBOOTH_DIR}}/.env
 
 ExecStart={{PHOTOBOOTH_PYTHON}} server.py
 

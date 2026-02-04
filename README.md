@@ -19,15 +19,6 @@ A web-based photobooth with React frontend, Flask backend, and thermal printer s
 
 ## Quick Start
 
-### Configure Access Control
-
-API routes are now password-protected.
-
-```bash
-cp .env.example .env
-# Edit .env and set PHOTOBOOTH_API_PASSWORD + PHOTOBOOTH_SESSION_SECRET
-```
-
 ### Development (macOS)
 
 ```bash
@@ -84,9 +75,6 @@ photobooth/
 
 | Endpoint                  | Method | Description          |
 | ------------------------- | ------ | -------------------- |
-| `/api/auth/status`        | GET    | Check login status   |
-| `/api/auth/login`         | POST   | Start authenticated session |
-| `/api/auth/logout`        | POST   | End authenticated session |
 | `/api/photo`              | POST   | Take a single photo  |
 | `/api/strip`              | POST   | Take a 3-photo strip |
 | `/api/status`             | GET    | Get capture status   |
@@ -94,8 +82,6 @@ photobooth/
 | `/api/like/<filename>`    | POST   | Toggle like on photo |
 | `/api/reprint/<filename>` | POST   | Reprint a photo      |
 | `/api/delete/<filename>`  | POST   | Delete a photo       |
-
-All `/api/*` routes except `/api/auth/login` and `/api/auth/status` require an authenticated session.
 
 ## Hardware
 

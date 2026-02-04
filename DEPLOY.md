@@ -57,19 +57,6 @@ scp -r /Users/lfpmb/Desktop/GitHub-Repos/photobooth/frontend/dist \
 ssh pi2@10.0.0.71 "sudo systemctl restart photobooth"
 ```
 
-### Configure API Access Password
-
-The service now reads environment variables from `~/photobooth/.env` (via `EnvironmentFile`).
-
-```bash
-ssh pi2@10.0.0.71
-cd ~/photobooth
-cp .env.example .env
-nano .env
-# Set PHOTOBOOTH_API_PASSWORD and PHOTOBOOTH_SESSION_SECRET
-sudo systemctl restart photobooth
-```
-
 ### 4. Verify the Update
 
 Check service status:
