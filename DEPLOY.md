@@ -90,4 +90,5 @@ sudo systemctl restart photobooth
 | Service won't start | Check logs: `sudo journalctl -u photobooth -n 50`  |
 | Camera not detected | Ensure camera is connected, check `ls /dev/video*` |
 | Printer not working | Check USB connection: `lsusb`                      |
+| Joystick not working | Check `lsusb` for DragonRise; re-run `sudo ./setup_pi.sh` to install udev rules |
 | Changes not visible | Clear browser cache or hard refresh (Ctrl+Shift+R) |

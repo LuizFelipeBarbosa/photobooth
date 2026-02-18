@@ -1,5 +1,5 @@
 [Unit]
-Description=Photobooth Web Server
+Description=Photobooth Service
 After=network.target
 
 [Service]
@@ -7,8 +7,10 @@ After=network.target
 User={{PHOTOBOOTH_USER}}
 WorkingDirectory={{PHOTOBOOTH_DIR}}
 Environment=PYTHONUNBUFFERED=1
+Environment=DISPLAY=:0
+Environment=XAUTHORITY=/home/{{PHOTOBOOTH_USER}}/.Xauthority
 
-ExecStart={{PHOTOBOOTH_PYTHON}} server.py
+ExecStart={{PHOTOBOOTH_PYTHON}} {{PHOTOBOOTH_SCRIPT}}
 
 # Restart automatically if it crashes
 Restart=always

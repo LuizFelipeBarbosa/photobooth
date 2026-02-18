@@ -3,12 +3,14 @@ set -euo pipefail
 
 # Setup script for Photobooth auto-start on Raspberry Pi.
 # Usage:
-#   sudo ./setup_pi.sh
+#   sudo ./setup_pi.sh                       # Web mode (default)
+#   PB_SCRIPT=kiosk.py sudo ./setup_pi.sh    # Kiosk mode
 #
 # Optional overrides:
 #   PB_SERVICE_USER=pi
 #   PB_APP_DIR=/home/pi/photobooth
 #   PB_PYTHON_BIN=/home/pi/photobooth/venv/bin/python
+#   PB_SCRIPT=server.py          # or kiosk.py
 #   PB_START_NOW=true
 
 if [[ "${EUID}" -ne 0 ]]; then
@@ -61,7 +63,33 @@ if [[ ! -x "${PYTHON_BIN}" ]]; then
   fi
 fi
 
+BOOT_SCRIPT="${PB_SCRIPT:-server.py}"
+if [[ ! -f "${APP_DIR}/${BOOT_SCRIPT}" ]]; then
+  echo "Script not found: ${APP_DIR}/${BOOT_SCRIPT}"
+  exit 1
+fi
+
 START_NOW="${PB_START_NOW:-true}"
+
+# ── System dependencies for hidapi (joystick) ──
+echo "Installing system dependencies..."
+apt-get install -y libhidapi-dev >/dev/null 2>&1 || echo "Warning: could not install libhidapi-dev"
+
+# ── udev rules for USB peripherals (joystick + printer) ──
+UDEV_SRC="${SCRIPT_DIR}/99-photobooth.rules"
+UDEV_DEST="/etc/udev/rules.d/99-photobooth.rules"
+if [[ -f "${UDEV_SRC}" ]]; then
+  echo "Installing udev rules..."
+  cp "${UDEV_SRC}" "${UDEV_DEST}"
+  udevadm control --reload-rules
+  udevadm trigger
+fi
+
+# ── Add user to input group for HID access ──
+if ! groups "${SERVICE_USER}" | grep -q '\binput\b'; then
+  echo "Adding ${SERVICE_USER} to input group..."
+  usermod -aG input "${SERVICE_USER}"
+fi
 
 escape_sed_replacement() {
   printf '%s' "$1" | sed -e 's/[\\/&|]/\\&/g'
@@ -70,6 +98,7 @@ escape_sed_replacement() {
 SERVICE_USER_ESCAPED="$(escape_sed_replacement "${SERVICE_USER}")"
 APP_DIR_ESCAPED="$(escape_sed_replacement "${APP_DIR}")"
 PYTHON_BIN_ESCAPED="$(escape_sed_replacement "${PYTHON_BIN}")"
+BOOT_SCRIPT_ESCAPED="$(escape_sed_replacement "${BOOT_SCRIPT}")"
 
 TMP_SERVICE="$(mktemp)"
 trap 'rm -f "${TMP_SERVICE}"' EXIT
@@ -78,6 +107,7 @@ sed \
   -e "s|{{PHOTOBOOTH_USER}}|${SERVICE_USER_ESCAPED}|g" \
   -e "s|{{PHOTOBOOTH_DIR}}|${APP_DIR_ESCAPED}|g" \
   -e "s|{{PHOTOBOOTH_PYTHON}}|${PYTHON_BIN_ESCAPED}|g" \
+  -e "s|{{PHOTOBOOTH_SCRIPT}}|${BOOT_SCRIPT_ESCAPED}|g" \
   "${SERVICE_TEMPLATE}" > "${TMP_SERVICE}"
 
 echo "Installing systemd service..."
@@ -106,3 +136,4 @@ echo "Setup complete."
 echo "Service user: ${SERVICE_USER}"
 echo "App directory: ${APP_DIR}"
 echo "Python bin: ${PYTHON_BIN}"
+echo "Boot script: ${BOOT_SCRIPT}"

@@ -108,7 +108,13 @@ class PhotoboothCamera:
             # Warmup
             print("📷 Adjusting white balance and exposure...")
             time.sleep(2.0)
-            
+
+            # Start background frame-grabbing thread (matches OpenCV pattern)
+            self.stopped = False
+            self.thread = threading.Thread(target=self._update_picamera, daemon=True)
+            self.thread.start()
+            time.sleep(0.5)  # Wait for first frame
+
         elif self.camera_type == 'opencv':
             self.cap = cv2.VideoCapture(0)
             if not self.cap.isOpened():
@@ -130,6 +136,26 @@ class PhotoboothCamera:
             time.sleep(1.0)
             
         print("📷 Camera ready and persistent!")
+
+    def _update_picamera(self):
+        """Background thread to continuously grab frames from PiCamera."""
+        print("📷 PiCamera thread started")
+        while not self.stopped:
+            try:
+                array = self.picam.capture_array("main")
+                if array is not None:
+                    with self.lock:
+                        self._frame = array
+            except Exception:
+                time.sleep(0.1)
+        print("📷 PiCamera thread stopped")
+
+    def get_frame(self):
+        """Return the latest frame (numpy array) or None."""
+        with self.lock:
+            if self._frame is not None:
+                return self._frame.copy()
+        return None
 
     def _update_opencv(self):
         """Background thread to continuously grab frames from OpenCV."""
@@ -173,9 +199,17 @@ class PhotoboothCamera:
         filepath = os.path.join(PHOTOS_DIR, filename)
 
         if self.camera_type == 'picamera':
-            # PiCamera is naturally robust, usage here is fine
-            array = self.picam.capture_array("main")
-            img = Image.fromarray(array)
+            # Grab latest frame from background thread
+            frame = None
+            with self.lock:
+                if self._frame is not None:
+                    frame = self._frame.copy()
+
+            if frame is None:
+                print("❌ Failed to capture photo (no frame in buffer)")
+                return None
+
+            img = Image.fromarray(frame)
             img.save(filepath, "JPEG", quality=95)
             
         elif self.camera_type == 'opencv':
