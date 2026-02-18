@@ -59,13 +59,66 @@ class KioskApp:
         # Printing
         self._print_done = False
 
-        # Window
+        # Detect screen resolution
+        self.screen_w, self.screen_h = self._detect_screen_size()
+
+        # Window — force fullscreen by positioning and resizing explicitly
         cv2.namedWindow(WINDOW_NAME, cv2.WINDOW_NORMAL)
         cv2.setWindowProperty(WINDOW_NAME, cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
+        cv2.moveWindow(WINDOW_NAME, 0, 0)
+        cv2.resizeWindow(WINDOW_NAME, self.screen_w, self.screen_h)
+        # Show a blank frame so the window manager registers the window
+        cv2.imshow(WINDOW_NAME, np.zeros((self.screen_h, self.screen_w, 3), dtype=np.uint8))
+        cv2.waitKey(100)
+        self._force_fullscreen()
 
         # Joystick
         self.joystick = None
         self._init_joystick()
+
+    def _force_fullscreen(self):
+        """Use xdotool to remove decorations and force true fullscreen."""
+        try:
+            import subprocess
+            wid = subprocess.check_output(
+                ["xdotool", "search", "--name", WINDOW_NAME],
+                stderr=subprocess.DEVNULL, text=True
+            ).strip().splitlines()[0]
+            # Set override-redirect so the WM ignores this window (no title bar)
+            subprocess.run(["xdotool", "set_window", "--overrideredirect", "1", wid],
+                           stderr=subprocess.DEVNULL)
+            # Unmap/remap so the flag takes effect
+            subprocess.run(["xdotool", "windowunmap", wid], stderr=subprocess.DEVNULL)
+            time.sleep(0.3)
+            subprocess.run(["xdotool", "windowmap", wid], stderr=subprocess.DEVNULL)
+            subprocess.run(["xdotool", "windowmove", wid, "0", "0"],
+                           stderr=subprocess.DEVNULL)
+            subprocess.run(["xdotool", "windowsize", wid,
+                            str(self.screen_w), str(self.screen_h)],
+                           stderr=subprocess.DEVNULL)
+            subprocess.run(["xdotool", "windowactivate", wid],
+                           stderr=subprocess.DEVNULL)
+            subprocess.run(["xdotool", "windowfocus", wid],
+                           stderr=subprocess.DEVNULL)
+        except Exception as e:
+            print(f"⚠️  Could not force fullscreen: {e}")
+
+    @staticmethod
+    def _detect_screen_size():
+        """Return (width, height) of the primary screen."""
+        try:
+            import subprocess
+            out = subprocess.check_output(
+                ["xrandr"], stderr=subprocess.DEVNULL, text=True
+            )
+            for line in out.splitlines():
+                if "*" in line:
+                    res = line.split()[0]
+                    w, h = res.split("x")
+                    return int(w), int(h)
+        except Exception:
+            pass
+        return 1920, 1080
 
     def _init_joystick(self):
         try:
@@ -184,11 +237,7 @@ class KioskApp:
         """Compose the display frame based on current state."""
 
         if self.state == FLASH:
-            h, w = 1080, 1920
-            frame = self.camera.get_frame()
-            if frame is not None:
-                h, w = frame.shape[:2]
-            white = np.full((h, w, 3), 255, dtype=np.uint8)
+            white = np.full((self.screen_h, self.screen_w, 3), 255, dtype=np.uint8)
             return white
 
         if self.state == REVIEW or self.state == PRINTING:
@@ -197,7 +246,7 @@ class KioskApp:
         # All other states show live mirrored preview
         frame = self.camera.get_frame()
         if frame is None:
-            blank = np.zeros((1080, 1920, 3), dtype=np.uint8)
+            blank = np.zeros((self.screen_h, self.screen_w, 3), dtype=np.uint8)
             self._draw_text_centered(blank, "Waiting for camera...", 0.5, 1.5)
             return blank
 
@@ -230,7 +279,7 @@ class KioskApp:
     def _build_review_frame(self):
         """Show the captured photo centered on a dark background."""
         if self.review_image is None:
-            blank = np.zeros((1080, 1920, 3), dtype=np.uint8)
+            blank = np.zeros((self.screen_h, self.screen_w, 3), dtype=np.uint8)
             self._draw_text_centered(blank, "Processing...", 0.5, 2.0)
             return blank
 
@@ -238,7 +287,7 @@ class KioskApp:
         rh, rw = review.shape[:2]
 
         # Target display size: fit within screen
-        screen_h, screen_w = 1080, 1920
+        screen_h, screen_w = self.screen_h, self.screen_w
         scale = min(screen_w / rw, screen_h / rh) * 0.85
         new_w = int(rw * scale)
         new_h = int(rh * scale)

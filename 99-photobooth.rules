@@ -1,0 +1,10 @@
+# Photobooth USB device permissions (non-root access)
+
+# DragonRise Inc. Generic USB Joystick (hidraw)
+SUBSYSTEM=="hidraw", ATTRS{idVendor}=="0079", ATTRS{idProduct}=="0006", MODE="0666"
+
+# DragonRise Inc. Generic USB Joystick (usb - for libusb backend)
+SUBSYSTEM=="usb", ATTR{idVendor}=="0079", ATTR{idProduct}=="0006", MODE="0666"
+
+# RONGTA Thermal Printer
+SUBSYSTEM=="usb", ATTR{idVendor}=="0fe6", ATTR{idProduct}=="811e", MODE="0666"
