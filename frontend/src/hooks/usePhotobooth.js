@@ -187,6 +187,26 @@ export default function usePhotobooth() {
             .catch(() => { })
     }, [startPolling])
 
+    // Heartbeat: poll every 2s when idle to detect joystick-triggered captures
+    useEffect(() => {
+        if (isCapturing) return
+
+        const interval = setInterval(async () => {
+            try {
+                const r = await fetch('/api/status')
+                const data = await r.json()
+                if (data.in_progress) {
+                    setIsCapturing(true)
+                    startPolling()
+                }
+            } catch {
+                // ignore network errors
+            }
+        }, 2000)
+
+        return () => clearInterval(interval)
+    }, [isCapturing, startPolling])
+
     return {
         status,
         statusIcon,

@@ -5,6 +5,7 @@ opencv-python>=4.8.0
 Pillow>=10.0.0
 Flask>=3.0.0
 flask-cors>=4.0.0
+hidapi>=0.14.0
 
 # Raspberry Pi Camera (install on Pi only)
 # pip install picamera2

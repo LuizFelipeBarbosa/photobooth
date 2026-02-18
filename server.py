@@ -5,6 +5,7 @@ Provides a web interface to trigger the photobooth from a phone
 
 import os
 import sys
+import time
 import threading
 import json
 from flask import Flask, render_template, jsonify, send_from_directory
@@ -48,6 +49,9 @@ def init_camera():
 
 # Initialize camera on startup
 init_camera()
+
+# Global Joystick Instance
+joystick = None
 
 
 # Metadata file path
@@ -119,6 +123,7 @@ def status():
     """Get current status"""
     return jsonify({
         "in_progress": photo_in_progress,
+        "joystick_connected": joystick.connected if joystick else False,
         **last_result
     })
 
@@ -212,144 +217,120 @@ def delete_photo(filename):
         return jsonify({"status": "error", "message": str(e)}), 500
 
 
+def _do_single_capture():
+    """Capture a single photo, process, and print. Runs in a background thread."""
+    global photo_in_progress, last_result
+    last_result = {"status": "capturing", "message": "Say cheese! 📸"}
+
+    try:
+        filepath = camera.capture(countdown=3)
+
+        if filepath:
+            filename = os.path.basename(filepath)
+            last_result = {
+                "status": "success",
+                "message": "Photo captured! Printing...",
+                "photo_url": f"/photos/{filename}"
+            }
+            thermal_path = process_for_thermal(filepath)
+            print_photo(thermal_path)
+        else:
+            last_result = {"status": "error", "message": "Capture returned empty"}
+    except Exception as e:
+        print(f"Error taking photo: {e}")
+        last_result = {"status": "error", "message": str(e)[:100]}
+    finally:
+        photo_in_progress = False
+
+
+def _do_strip_capture():
+    """Capture a photo strip (3 photos), stitch, and print. Runs in a background thread."""
+    global photo_in_progress, last_result
+
+    try:
+        photo_paths = []
+        num_photos = 3
+
+        for i in range(num_photos):
+            target_time = time.time() + 3
+            last_result = {
+                "status": "countdown",
+                "target_timestamp": target_time,
+                "photo_index": i + 1,
+                "total_photos": num_photos,
+                "message": f"Pose {i+1}/{num_photos}"
+            }
+            time.sleep(3)
+
+            last_result = {"status": "capturing", "message": "SNAP!"}
+            path = camera.capture(countdown=0, filename_prefix="strip")
+            if path:
+                photo_paths.append(path)
+
+            if i < num_photos - 1:
+                target_time = time.time() + 2
+                last_result = {
+                    "status": "waiting",
+                    "target_timestamp": target_time,
+                    "message": "Next pose..."
+                }
+                time.sleep(2)
+
+        if photo_paths:
+            last_result = {"status": "processing", "message": "Stitching strip..."}
+            strip_path = create_photo_strip(photo_paths)
+
+            if strip_path:
+                filename = os.path.basename(strip_path)
+                last_result = {
+                    "status": "success",
+                    "message": "Strip captured! Printing...",
+                    "photo_url": f"/photos/{filename}"
+                }
+                thermal_path = process_for_thermal(strip_path, is_strip=True)
+                print_photo(thermal_path)
+            else:
+                last_result = {"status": "error", "message": "Failed to stitch strip"}
+        else:
+            last_result = {"status": "error", "message": "Failed to capture strip photos"}
+
+    except Exception as e:
+        print(f"Error taking strip: {e}")
+        last_result = {"status": "error", "message": str(e)[:100]}
+    finally:
+        photo_in_progress = False
+
+
+def _start_capture(capture_fn):
+    """Guard + launch a capture function in a background thread.
+    Returns (ok, error_message). Sets photo_in_progress before spawning."""
+    global photo_in_progress
+    if photo_in_progress:
+        return False, "Photo already in progress!"
+    if not camera:
+        return False, "Camera not initialized!"
+    photo_in_progress = True
+    threading.Thread(target=capture_fn).start()
+    return True, None
+
+
 @app.route('/api/photo', methods=['POST'])
 def take_photo():
     """Take a single photo using the persistent camera"""
-    global photo_in_progress, last_result
-    
-    if photo_in_progress:
-        return jsonify({"status": "error", "message": "Photo already in progress!"}), 400
-    
-    if not camera:
-        return jsonify({"status": "error", "message": "Camera not initialized!"}), 500
-    
-    def capture():
-        global photo_in_progress, last_result
-        photo_in_progress = True
-        last_result = {"status": "capturing", "message": "Say cheese! 📸"}
-        
-        try:
-            # Pass countdown=3 to let the backend sleep and sync with frontend
-            filepath = camera.capture(countdown=3)
-            
-            if filepath:
-                filename = os.path.basename(filepath)
-                last_result = {
-                    "status": "success", 
-                    "message": "Photo captured! Printing...", 
-                    "photo_url": f"/photos/{filename}"
-                }
-                
-                # Print in background (don't block the "success" display strictly, 
-                # but usually we want to print before saying done? 
-                # Ideally, we return the photo URL immediately for display, 
-                # then print asynchronously.
-                # But 'photobooth.py' logic was capture -> process -> print.
-                
-                
-                thermal_path = process_for_thermal(filepath)
-                print_photo(thermal_path)
-                
-            else:
-                last_result = {"status": "error", "message": "Capture returned empty"}
-        except Exception as e:
-            print(f"Error taking photo: {e}")
-            last_result = {"status": "error", "message": str(e)[:100]}
-        finally:
-            photo_in_progress = False
-    
-    thread = threading.Thread(target=capture)
-    thread.start()
-    
+    ok, err = _start_capture(_do_single_capture)
+    if not ok:
+        code = 400 if "already" in err else 500
+        return jsonify({"status": "error", "message": err}), code
     return jsonify({"status": "started", "message": "Taking photo..."})
 
-
-import time
 
 @app.route('/api/strip', methods=['POST'])
 def take_strip():
     """Take a photo strip (3 photos)"""
-    global photo_in_progress, last_result
-    
-    if photo_in_progress:
-        return jsonify({"status": "error", "message": "Photo already in progress!"}), 400
-    
-    if not camera:
-        return jsonify({"status": "error", "message": "Camera not initialized!"}), 500
-    
-    def capture():
-        global photo_in_progress, last_result
-        photo_in_progress = True
-        
-        try:
-            photo_paths = []
-            num_photos = 3
-            
-            for i in range(num_photos):
-                # 1. Countdown Phase
-                target_time = time.time() + 3  # 3 seconds from now
-                last_result = {
-                    "status": "countdown", 
-                    "target_timestamp": target_time,
-                    "photo_index": i + 1,
-                    "total_photos": num_photos,
-                    "message": f"Pose {i+1}/{num_photos}"
-                }
-                
-                # Sleep until target time (approx)
-                time.sleep(3)
-                
-                # 2. Capture Phase
-                last_result = {
-                    "status": "capturing", 
-                    "message": "SNAP!"
-                }
-                
-                # Capture immediately (countdown=0 because we handled it)
-                path = camera.capture(countdown=0, filename_prefix="strip")
-                if path:
-                    photo_paths.append(path)
-                
-                # 3. Gap Phase (if not last photo)
-                if i < num_photos - 1:
-                    target_time = time.time() + 2  # 2 seconds gap
-                    last_result = {
-                        "status": "waiting",
-                        "target_timestamp": target_time,
-                        "message": "Next pose..."
-                    }
-                    time.sleep(2)
-
-            # Process strip
-            if photo_paths:
-                last_result = {"status": "processing", "message": "Stitching strip..."}
-                strip_path = create_photo_strip(photo_paths)
-                
-                if strip_path:
-                    filename = os.path.basename(strip_path)
-                    last_result = {
-                        "status": "success", 
-                        "message": "Strip captured! Printing...",
-                        "photo_url": f"/photos/{filename}"
-                    }
-                    
-                    
-                    thermal_path = process_for_thermal(strip_path, is_strip=True)
-                    print_photo(thermal_path)
-                else:
-                    last_result = {"status": "error", "message": "Failed to stitch strip"}
-            else:
-                last_result = {"status": "error", "message": "Failed to capture strip photos"}
-                
-        except Exception as e:
-            print(f"Error taking strip: {e}")
-            last_result = {"status": "error", "message": str(e)[:100]}
-        finally:
-            photo_in_progress = False
-    
-    thread = threading.Thread(target=capture)
-    thread.start()
-    
+    ok, err = _start_capture(_do_strip_capture)
+    if not ok:
+        code = 400 if "already" in err else 500
+        return jsonify({"status": "error", "message": err}), code
     return jsonify({"status": "started", "message": "Taking photo strip..."})
 
 
@@ -362,6 +343,22 @@ def serve_photo(filename):
 
 
 
+
+
+# Initialize joystick controller (optional — server works fine without it)
+def init_joystick():
+    global joystick
+    try:
+        from joystick import JoystickController
+        joystick = JoystickController(
+            on_single_photo=lambda: _start_capture(_do_single_capture),
+            on_photo_strip=lambda: _start_capture(_do_strip_capture),
+        )
+        print("🕹️  Joystick controller started")
+    except Exception as e:
+        print(f"🕹️  Joystick not available: {e}")
+
+init_joystick()
 
 
 if __name__ == '__main__':
