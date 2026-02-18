@@ -59,8 +59,9 @@ class KioskApp:
         # Printing
         self._print_done = False
 
-        # Detect screen resolution
+        # Detect screen resolution and compute scale factor (1.0 at 1080p)
         self.screen_w, self.screen_h = self._detect_screen_size()
+        self._scale = self.screen_h / 1080
 
         # Window — force fullscreen by positioning and resizing explicitly
         cv2.namedWindow(WINDOW_NAME, cv2.WINDOW_NORMAL)
@@ -176,6 +177,18 @@ class KioskApp:
 
         threading.Thread(target=_print_thread, daemon=True).start()
 
+    def _fit_to_screen(self, frame):
+        """Resize frame to fit screen while preserving aspect ratio (letterboxed)."""
+        fh, fw = frame.shape[:2]
+        scale = min(self.screen_w / fw, self.screen_h / fh)
+        new_w, new_h = int(fw * scale), int(fh * scale)
+        resized = cv2.resize(frame, (new_w, new_h))
+        canvas = np.zeros((self.screen_h, self.screen_w, 3), dtype=np.uint8)
+        x_off = (self.screen_w - new_w) // 2
+        y_off = (self.screen_h - new_h) // 2
+        canvas[y_off:y_off + new_h, x_off:x_off + new_w] = resized
+        return canvas
+
     # ── Overlay helpers ──
 
     @staticmethod
@@ -199,7 +212,7 @@ class KioskApp:
         thickness = 2
         text_size = cv2.getTextSize(text, font, font_scale, thickness)[0]
 
-        banner_h = text_size[1] + 40
+        banner_h = text_size[1] + max(10, int(40 * h / 1080))
         y_top = int(h * y_ratio) - banner_h // 2
         y_top = max(0, min(y_top, h - banner_h))
 
@@ -247,32 +260,35 @@ class KioskApp:
         frame = self.camera.get_frame()
         if frame is None:
             blank = np.zeros((self.screen_h, self.screen_w, 3), dtype=np.uint8)
-            self._draw_text_centered(blank, "Waiting for camera...", 0.5, 1.5)
+            self._draw_text_centered(blank, "Waiting for camera...", 0.5, max(0.5, 1.5 * self._scale))
             return blank
 
-        # Mirror for selfie view
+        # Mirror for selfie view and fit to screen (preserving aspect ratio)
         frame = cv2.flip(frame, 1)
+        frame = self._fit_to_screen(frame)
+        s = self._scale
 
         if self.state == IDLE:
-            self._draw_banner(frame, "Press the button to take a photo!", 0.85, 1.2)
+            self._draw_banner(frame, "Press button to take a photo!", 0.85, max(0.4, 1.2 * s))
 
         elif self.state == COUNTDOWN:
             elapsed = self._elapsed()
             remaining = COUNTDOWN_SECONDS - int(elapsed)
             if remaining < 1:
                 remaining = 1
-            self._draw_text_centered(frame, str(remaining), 0.45, 8.0,
-                                     color=(0, 255, 255), thickness=12)
+            self._draw_text_centered(frame, str(remaining), 0.45, max(1.0, 8.0 * s),
+                                     color=(0, 255, 255), thickness=max(2, int(12 * s)))
             if self.is_strip:
                 label = f"Photo {self.strip_photo_index + 1}/{STRIP_NUM_PHOTOS}"
-                self._draw_banner(frame, label, 0.15, 1.0)
+                self._draw_banner(frame, label, 0.15, max(0.4, 1.0 * s))
 
         elif self.state == STRIP_GAP:
-            label = f"Get ready for photo {self.strip_photo_index + 1}/{STRIP_NUM_PHOTOS}..."
-            self._draw_banner(frame, label, 0.5, 1.2)
+            label = f"Get ready for photo {self.strip_photo_index + 1}..."
+            self._draw_banner(frame, label, 0.5, max(0.4, 1.2 * s))
 
         elif self.state == CAPTURE:
-            self._draw_text_centered(frame, "SNAP!", 0.5, 4.0, color=(0, 255, 255), thickness=8)
+            self._draw_text_centered(frame, "SNAP!", 0.5, max(1.0, 4.0 * s),
+                                     color=(0, 255, 255), thickness=max(2, int(8 * s)))
 
         return frame
 
@@ -280,7 +296,7 @@ class KioskApp:
         """Show the captured photo centered on a dark background."""
         if self.review_image is None:
             blank = np.zeros((self.screen_h, self.screen_w, 3), dtype=np.uint8)
-            self._draw_text_centered(blank, "Processing...", 0.5, 2.0)
+            self._draw_text_centered(blank, "Processing...", 0.5, max(0.5, 2.0 * self._scale))
             return blank
 
         review = self.review_image
@@ -299,7 +315,7 @@ class KioskApp:
         canvas[y_off:y_off + new_h, x_off:x_off + new_w] = resized
 
         if self.state == PRINTING:
-            self._draw_banner(canvas, "Printing...", 0.9, 1.5)
+            self._draw_banner(canvas, "Printing...", 0.9, max(0.4, 1.5 * self._scale))
 
         return canvas
 
