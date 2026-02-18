@@ -220,10 +220,18 @@ def delete_photo(filename):
 def _do_single_capture():
     """Capture a single photo, process, and print. Runs in a background thread."""
     global photo_in_progress, last_result
-    last_result = {"status": "capturing", "message": "Say cheese! 📸"}
 
     try:
-        filepath = camera.capture(countdown=3)
+        target_time = time.time() + 3
+        last_result = {
+            "status": "countdown",
+            "target_timestamp": target_time,
+            "message": "Say cheese! 📸"
+        }
+        time.sleep(3)
+
+        last_result = {"status": "capturing", "message": "SNAP!"}
+        filepath = camera.capture(countdown=0)
 
         if filepath:
             filename = os.path.basename(filepath)
