@@ -59,6 +59,9 @@ class KioskApp:
         # Printing
         self._print_done = False
 
+        # Wait for X11 display to be available (matters on boot)
+        self._wait_for_display()
+
         # Detect screen resolution and compute scale factor (1.0 at 1080p)
         self.screen_w, self.screen_h = self._detect_screen_size()
         self._scale = self.screen_h / 1080
@@ -76,6 +79,23 @@ class KioskApp:
         # Joystick
         self.joystick = None
         self._init_joystick()
+
+    @staticmethod
+    def _wait_for_display(timeout=30):
+        """Block until the X11 display is available."""
+        import subprocess
+        deadline = time.time() + timeout
+        while time.time() < deadline:
+            try:
+                subprocess.check_output(
+                    ["xrandr"], stderr=subprocess.DEVNULL, timeout=2,
+                )
+                # Also wait a moment for the window manager to start
+                time.sleep(2)
+                return
+            except Exception:
+                time.sleep(1)
+        print("⚠️  Display not detected after timeout, continuing anyway")
 
     def _force_fullscreen(self):
         """Use xdotool to remove decorations and force true fullscreen."""
