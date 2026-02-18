@@ -82,7 +82,7 @@ class KioskApp:
 
     @staticmethod
     def _wait_for_display(timeout=30):
-        """Block until the X11 display is available."""
+        """Block until the X11 display is available, then disable screen blanking."""
         import subprocess
         deadline = time.time() + timeout
         while time.time() < deadline:
@@ -92,6 +92,10 @@ class KioskApp:
                 )
                 # Also wait a moment for the window manager to start
                 time.sleep(2)
+                # Disable screen saver and DPMS so the display stays on
+                subprocess.run(["xset", "s", "off"], stderr=subprocess.DEVNULL)
+                subprocess.run(["xset", "s", "noblank"], stderr=subprocess.DEVNULL)
+                subprocess.run(["xset", "-dpms"], stderr=subprocess.DEVNULL)
                 return
             except Exception:
                 time.sleep(1)
